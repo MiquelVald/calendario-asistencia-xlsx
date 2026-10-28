@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Consulta asistencias desde un archivo XLSX por persona y fecha."
+    />
+    <title>Calendario de asistencia</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="#" aria-label="Calendario de asistencia, inicio">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img">
+              <path d="M7 3v3M17 3v3M4.5 9.5h15M6.5 5h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+              <path d="m8.5 14 2 2 4.5-4.5" />
+            </svg>
+          </span>
+          <span>
+            <strong>Asistencia</strong>
+            <small>Consulta por persona</small>
+          </span>
+        </a>
+        <span class="privacy-pill">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12v10H6z" /></svg>
+          Procesamiento local
+        </span>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">Reporte de asistencia</p>
+            <h1 id="page-title">Encuentra las fechas de una persona en segundos.</h1>
+            <p class="intro-copy">
+              Carga tu archivo XLSX, busca un nombre y revisa sus entradas y salidas en un calendario claro.
+            </p>
+          </div>
+          <div class="intro-art" aria-hidden="true">
+            <div class="mini-calendar">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span class="salmon"></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span class="orange"></span><span></span><span></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace-card" aria-label="Cargar y consultar archivo">
+          <div class="step-panel upload-panel">
+            <div class="step-heading">
+              <span class="step-number">1</span>
+              <div>
+                <h2>Carga el archivo</h2>
+                <p>Usa un XLSX con las columnas Nombre, Fecha, Entrada y Salida.</p>
+              </div>
+            </div>
+
+            <label id="dropZone" class="drop-zone" for="fileInput">
+              <input id="fileInput" type="file" accept=".xlsx,.xls" />
+              <span class="upload-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14.5V19h14v-4.5" /></svg>
+              </span>
+              <strong>Arrastra tu archivo aquí</strong>
+              <span>o <u>selecciónalo desde tu equipo</u></span>
+              <small>Formato XLSX o XLS</small>
+            </label>
+
+            <div id="fileStatus" class="file-status" hidden aria-live="polite">
+              <span class="file-status-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7zM14 3v5h4M9.5 13h6M9.5 16h6" /></svg>
+              </span>
+              <span class="file-status-copy">
+                <strong id="fileName"></strong>
+                <small id="fileMeta"></small>
+              </span>
+              <button id="replaceFile" class="text-button" type="button">Cambiar</button>
+            </div>
+            <p class="local-note">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 10v6M12 7.2v.1" /></svg>
+              El archivo se procesa en este navegador. No se guarda ni se envía a un servidor.
+            </p>
+            <div id="errorMessage" class="error-message" hidden role="alert"></div>
+          </div>
+
+          <div id="personPanel" class="step-panel person-panel is-disabled" aria-disabled="true">
+            <div class="step-heading">
+              <span class="step-number">2</span>
+              <div>
+                <h2>Selecciona una persona</h2>
+                <p>Escribe una parte del nombre o elige una opción.</p>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label for="personSearch">Nombre</label>
+              <div id="combobox" class="combobox">
+                <span class="search-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></svg>
+                </span>
+                <input
+                  id="personSearch"
+                  type="text"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="personList"
+                  autocomplete="off"
+                  placeholder="Ej. Alejandro Villa Leyva"
+                  disabled
+                />
+                <button id="togglePeople" class="combo-toggle" type="button" aria-label="Mostrar nombres" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5" /></svg>
+                </button>
+                <div id="personList" class="person-list" role="listbox" hidden></div>
+              </div>
+              <p id="personHint" class="field-hint">Primero carga un archivo.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="results" class="results" hidden aria-live="polite">
+          <div class="results-header">
+            <div>
+              <p class="eyebrow">Calendario personal</p>
+              <h2 id="selectedName"></h2>
+            </div>
+            <div class="summary-chips" aria-label="Resumen">
+              <span><strong id="dateCount">0</strong> fechas</span>
+              <span class="summary-red"><strong id="redCount">0</strong> entradas en rojo</span>
+              <span class="summary-orange"><strong id="orangeCount">0</strong> salidas en naranja</span>
+            </div>
+          </div>
+
+          <div class="calendar-layout">
+            <article class="calendar-card" aria-label="Calendario de asistencias">
+              <div class="calendar-toolbar">
+                <button id="prevMonth" class="icon-button" type="button" aria-label="Mes anterior">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6" /></svg>
+                </button>
+                <h3 id="monthLabel"></h3>
+                <button id="nextMonth" class="icon-button" type="button" aria-label="Mes siguiente">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>
+                </button>
+              </div>
+              <div class="weekday-row" aria-hidden="true">
+                <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+              </div>
+              <div id="calendarGrid" class="calendar-grid"></div>
+              <div class="legend" aria-label="Leyenda del calendario">
+                <span><i class="legend-dot salmon"></i> Entrada marcada en rojo</span>
+                <span><i class="legend-dot orange"></i> Salida marcada en naranja</span>
+              </div>
+            </article>
+
+            <aside class="day-card" aria-labelledby="dayTitle">
+              <p class="eyebrow">Detalle del día</p>
+              <h3 id="dayTitle">Selecciona una fecha</h3>
+              <p id="daySubtitle" class="day-subtitle">Haz clic en un día del calendario para ver sus registros.</p>
+              <div id="dayDetails" class="day-details" hidden>
+                <div class="time-row">
+                  <span class="time-icon entry" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M11 5H5v14h6M14 8l4 4-4 4M9 12h9" /></svg>
+                  </span>
+                  <span><small>Entrada</small><strong id="entryTime"></strong></span>
+                  <span id="entryBadge" class="status-badge red" hidden>Rojo</span>
+                </div>
+                <div class="time-row">
+                  <span class="time-icon exit" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M13 5h6v14h-6M10 8l-4 4 4 4M6 12h9" /></svg>
+                  </span>
+                  <span><small>Salida</small><strong id="exitTime"></strong></span>
+                  <span id="exitBadge" class="status-badge orange" hidden>Naranja</span>
+                </div>
+                <p id="dayMessage" class="day-message"></p>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+
+      <footer>Calendario de asistencia · Los datos permanecen en tu dispositivo</footer>
+    </div>
+
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
