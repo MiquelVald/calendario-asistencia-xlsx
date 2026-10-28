@@ -257,6 +257,42 @@ function safeDate(year, month, day) {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
 }
 
+// Descansos obligatorios federales del artículo 74 de la LFT.
+// Las jornadas electorales no se calculan aquí porque dependen de la elección federal o local aplicable.
+function mexicoMandatoryHoliday(date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const fixedHolidays = new Map([
+    ["0-1", "Año Nuevo"],
+    ["4-1", "Día del Trabajo"],
+    ["8-16", "Día de la Independencia"],
+    ["11-25", "Navidad"],
+  ]);
+  const fixedHoliday = fixedHolidays.get(`${month}-${day}`);
+  if (fixedHoliday) return fixedHoliday;
+  if (month === 1 && day === nthWeekdayOfMonth(year, month, 1, 1)) return "Día de la Constitución";
+  if (month === 2 && day === nthWeekdayOfMonth(year, month, 1, 3)) return "Natalicio de Benito Juárez";
+  if (month === 10 && day === nthWeekdayOfMonth(year, month, 1, 3)) return "Día de la Revolución";
+  if (year >= 2024 && (year - 2024) % 6 === 0 && month === 9 && day === 1) {
+    return "Transmisión del Poder Ejecutivo Federal";
+  }
+  return null;
+}
+
+function nthWeekdayOfMonth(year, month, weekday, occurrence) {
+  const firstWeekday = new Date(year, month, 1).getDay();
+  return 1 + ((weekday - firstWeekday + 7) % 7) + (occurrence - 1) * 7;
+}
+
+function nonWorkingDay(date) {
+  const holiday = mexicoMandatoryHoliday(date);
+  if (holiday) return { label: holiday, type: "holiday" };
+  if (date.getDay() === 6) return { label: "Sábado", type: "weekend" };
+  if (date.getDay() === 0) return { label: "Domingo", type: "weekend" };
+  return null;
+}
+
 function timeText(cell) {
   if (!cell || cell.v === null || cell.v === undefined || cell.v === "") return "Sin registro";
   if (cell.v instanceof Date && !Number.isNaN(cell.v.valueOf())) {
@@ -395,7 +431,7 @@ function selectPerson(person) {
   closePeopleList();
   const firstDate = person.records[0].date;
   state.currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-  const firstAlert = person.records.find((record) => record.entryAlert || record.exitAlert) || person.records[0];
+  const firstAlert = person.records.find((record) => !nonWorkingDay(record.date) && (record.entryAlert || record.exitAlert)) || person.records[0];
   state.selectedDate = firstAlert.dateKey;
   renderResults();
   els.results.hidden = false;
@@ -405,8 +441,9 @@ function selectPerson(person) {
 function renderResults() {
   const person = state.selectedPerson;
   if (!person) return;
-  const lateCount = person.records.filter((record) => record.entryAlert).length;
-  const earlyCount = person.records.filter((record) => record.exitAlert).length;
+  const workingRecords = person.records.filter((record) => !nonWorkingDay(record.date));
+  const lateCount = workingRecords.filter((record) => record.entryAlert).length;
+  const earlyCount = workingRecords.filter((record) => record.exitAlert).length;
   els.selectedName.textContent = person.name;
   els.dateCount.textContent = person.records.length;
   els.redCount.textContent = lateCount;
@@ -442,9 +479,10 @@ function renderCalendar() {
     const date = new Date(year, month, day);
     const key = toDateKey(date);
     const dayRecords = recordsByDate.get(key) || [];
-    const hasRed = dayRecords.some((record) => record.entryAlert);
-    const hasOrange = dayRecords.some((record) => record.exitAlert);
-    const hasNoCheck = dayRecords.length > 0 && dayRecords.every((record) => !record.hasEntry && !record.hasExit);
+    const nonWorking = nonWorkingDay(date);
+    const hasRed = !nonWorking && dayRecords.some((record) => record.entryAlert);
+    const hasOrange = !nonWorking && dayRecords.some((record) => record.exitAlert);
+    const hasNoCheck = !nonWorking && dayRecords.length > 0 && dayRecords.every((record) => !record.hasEntry && !record.hasExit);
     const cell = document.createElement(dayRecords.length ? "button" : "span");
     if (dayRecords.length) cell.type = "button";
     cell.className = [
@@ -454,6 +492,7 @@ function renderCalendar() {
       hasRed ? "has-red" : "",
       hasOrange ? "has-orange" : "",
       hasNoCheck ? "has-no-check" : "",
+      nonWorking ? "is-non-working" : "",
       state.selectedDate === key ? "is-selected" : "",
     ].filter(Boolean).join(" ");
     cell.innerHTML = `<span class="day-number">${day}</span>${dayRecords.length ? '<span class="record-dot"></span>' : ""}`;
@@ -462,6 +501,7 @@ function renderCalendar() {
         hasRed ? "llegada tardía" : "",
         hasOrange ? "salida temprana" : "",
         hasNoCheck ? "sin entrada ni salida" : "",
+        nonWorking ? `día no laborable: ${nonWorking.label}` : "",
       ].filter(Boolean).join(" y ");
       cell.setAttribute("aria-label", `${fullDateFormatter.format(date)}${alerts ? `, ${alerts}` : ", con registro"}`);
       cell.addEventListener("click", () => {
@@ -497,13 +537,17 @@ function renderDayDetails(dateKey) {
   els.dayDetails.hidden = false;
   els.entryTime.textContent = primary.entry;
   els.exitTime.textContent = primary.exit;
-  els.entryBadge.hidden = !records.some((record) => record.entryAlert);
-  els.exitBadge.hidden = !records.some((record) => record.exitAlert);
-  const hasNoCheck = records.every((record) => !record.hasEntry && !record.hasExit);
+  const nonWorking = nonWorkingDay(date);
+  els.entryBadge.hidden = Boolean(nonWorking) || !records.some((record) => record.entryAlert);
+  els.exitBadge.hidden = Boolean(nonWorking) || !records.some((record) => record.exitAlert);
+  const hasNoCheck = !nonWorking && records.every((record) => !record.hasEntry && !record.hasExit);
   const messages = [];
-  if (!els.entryBadge.hidden) messages.push("Este día registra una llegada tardía.");
-  if (!els.exitBadge.hidden) messages.push("Este día registra una salida temprana.");
-  if (hasNoCheck) messages.push("No se registró entrada ni salida este día.");
+  if (nonWorking) messages.push(`Día no laborable: ${nonWorking.label}.`);
+  else {
+    if (!els.entryBadge.hidden) messages.push("Este día registra una llegada tardía.");
+    if (!els.exitBadge.hidden) messages.push("Este día registra una salida temprana.");
+    if (hasNoCheck) messages.push("No se registró entrada ni salida este día.");
+  }
   if (!messages.length) messages.push("Este día no tiene alertas de color.");
   if (records.length > 1) messages.push(`Hay ${records.length} registros para esta fecha; se muestra el primero.`);
   els.dayMessage.textContent = messages.join(" ");
