@@ -17,7 +17,9 @@ const els = {
   selectedName: document.querySelector("#selectedName"),
   dateCount: document.querySelector("#dateCount"),
   redCount: document.querySelector("#redCount"),
+  redLabel: document.querySelector("#redLabel"),
   orangeCount: document.querySelector("#orangeCount"),
+  orangeLabel: document.querySelector("#orangeLabel"),
   monthLabel: document.querySelector("#monthLabel"),
   prevMonth: document.querySelector("#prevMonth"),
   nextMonth: document.querySelector("#nextMonth"),
@@ -107,6 +109,20 @@ els.personSearch.addEventListener("keydown", (event) => {
   }
 });
 
+els.personList.addEventListener("mousedown", (event) => {
+  const option = event.target.closest?.(".person-option");
+  if (!option) return;
+  event.preventDefault();
+  selectPerson(state.filteredPeople[Number(option.dataset.index)]);
+});
+
+els.personList.addEventListener("click", (event) => {
+  const option = event.target.closest?.(".person-option");
+  if (!option) return;
+  const person = state.filteredPeople[Number(option.dataset.index)];
+  if (person && state.selectedPerson?.key !== person.key) selectPerson(person);
+});
+
 document.addEventListener("click", (event) => {
   if (!event.target.closest("#combobox")) closePeopleList();
 });
@@ -180,6 +196,8 @@ function extractRecords(workbook) {
         dateKey: toDateKey(date),
         entry: timeText(entryCell),
         exit: timeText(exitCell),
+        hasEntry: cellHasValue(entryCell),
+        hasExit: cellHasValue(exitCell),
         entryAlert: classifyFill(entryCell) === "red",
         exitAlert: classifyFill(exitCell) === "orange",
         sheetName,
@@ -251,6 +269,10 @@ function timeText(cell) {
   const text = String(cell.w ?? cell.v).trim();
   const match = text.match(/^(\d{1,2}):(\d{2})/);
   return match ? `${match[1].padStart(2, "0")}:${match[2]}` : text || "Sin registro";
+}
+
+function cellHasValue(cell) {
+  return Boolean(cell && cell.v !== null && cell.v !== undefined && String(cell.v).trim() !== "");
 }
 
 function classifyFill(cell) {
@@ -341,6 +363,7 @@ function renderPeopleList() {
     const option = document.createElement("button");
     option.type = "button";
     option.className = `person-option${index === state.activeOption ? " is-active" : ""}`;
+    option.dataset.index = String(index);
     option.setAttribute("role", "option");
     option.setAttribute("aria-selected", String(person.key === state.selectedPerson?.key));
     option.textContent = person.name;
@@ -349,7 +372,6 @@ function renderPeopleList() {
       els.personList.querySelector(".is-active")?.classList.remove("is-active");
       option.classList.add("is-active");
     });
-    option.addEventListener("click", () => selectPerson(person));
     els.personList.append(option);
   });
   els.personList.querySelector(".is-active")?.scrollIntoView({ block: "nearest" });
@@ -383,10 +405,14 @@ function selectPerson(person) {
 function renderResults() {
   const person = state.selectedPerson;
   if (!person) return;
+  const lateCount = person.records.filter((record) => record.entryAlert).length;
+  const earlyCount = person.records.filter((record) => record.exitAlert).length;
   els.selectedName.textContent = person.name;
   els.dateCount.textContent = person.records.length;
-  els.redCount.textContent = person.records.filter((record) => record.entryAlert).length;
-  els.orangeCount.textContent = person.records.filter((record) => record.exitAlert).length;
+  els.redCount.textContent = lateCount;
+  els.redLabel.textContent = lateCount === 1 ? "llegada tardía" : "llegadas tardías";
+  els.orangeCount.textContent = earlyCount;
+  els.orangeLabel.textContent = earlyCount === 1 ? "salida temprana" : "salidas tempranas";
   renderCalendar();
   renderDayDetails(state.selectedDate);
 }
@@ -418,6 +444,7 @@ function renderCalendar() {
     const dayRecords = recordsByDate.get(key) || [];
     const hasRed = dayRecords.some((record) => record.entryAlert);
     const hasOrange = dayRecords.some((record) => record.exitAlert);
+    const hasNoCheck = dayRecords.length > 0 && dayRecords.every((record) => !record.hasEntry && !record.hasExit);
     const cell = document.createElement(dayRecords.length ? "button" : "span");
     if (dayRecords.length) cell.type = "button";
     cell.className = [
@@ -426,11 +453,16 @@ function renderCalendar() {
       dayRecords.length ? "has-record" : "",
       hasRed ? "has-red" : "",
       hasOrange ? "has-orange" : "",
+      hasNoCheck ? "has-no-check" : "",
       state.selectedDate === key ? "is-selected" : "",
     ].filter(Boolean).join(" ");
     cell.innerHTML = `<span class="day-number">${day}</span>${dayRecords.length ? '<span class="record-dot"></span>' : ""}`;
     if (dayRecords.length) {
-      const alerts = [hasRed ? "entrada en rojo" : "", hasOrange ? "salida en naranja" : ""].filter(Boolean).join(" y ");
+      const alerts = [
+        hasRed ? "llegada tardía" : "",
+        hasOrange ? "salida temprana" : "",
+        hasNoCheck ? "sin entrada ni salida" : "",
+      ].filter(Boolean).join(" y ");
       cell.setAttribute("aria-label", `${fullDateFormatter.format(date)}${alerts ? `, ${alerts}` : ", con registro"}`);
       cell.addEventListener("click", () => {
         state.selectedDate = key;
@@ -467,9 +499,11 @@ function renderDayDetails(dateKey) {
   els.exitTime.textContent = primary.exit;
   els.entryBadge.hidden = !records.some((record) => record.entryAlert);
   els.exitBadge.hidden = !records.some((record) => record.exitAlert);
+  const hasNoCheck = records.every((record) => !record.hasEntry && !record.hasExit);
   const messages = [];
-  if (!els.entryBadge.hidden) messages.push("La entrada está marcada en rojo en el archivo.");
-  if (!els.exitBadge.hidden) messages.push("La salida está marcada en naranja en el archivo.");
+  if (!els.entryBadge.hidden) messages.push("Este día registra una llegada tardía.");
+  if (!els.exitBadge.hidden) messages.push("Este día registra una salida temprana.");
+  if (hasNoCheck) messages.push("No se registró entrada ni salida este día.");
   if (!messages.length) messages.push("Este día no tiene alertas de color.");
   if (records.length > 1) messages.push(`Hay ${records.length} registros para esta fecha; se muestra el primero.`);
   els.dayMessage.textContent = messages.join(" ");

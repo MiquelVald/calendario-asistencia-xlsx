@@ -14,6 +14,9 @@
   --orange-bg: #fff3df;
   --orange-line: #efbd70;
   --orange-ink: #9b5d10;
+  --no-check-bg: #f2efff;
+  --no-check-line: #a99bd6;
+  --no-check-ink: #65558f;
   --shadow: 0 18px 48px rgba(31, 54, 96, 0.09);
 }
 
@@ -351,17 +354,20 @@ button.day-cell:hover { transform: translateY(-1px); border-color: #acbdd3; box-
 .day-cell.has-red { border-color: var(--salmon-line); color: var(--salmon-ink); background: var(--salmon-bg); }
 .day-cell.has-orange { border-color: var(--orange-line); color: var(--orange-ink); background: var(--orange-bg); }
 .day-cell.has-red.has-orange { border-color: #eab391; background: linear-gradient(135deg, var(--salmon-bg) 0 50%, var(--orange-bg) 50% 100%); }
+.day-cell.has-no-check { border-color: var(--no-check-line); border-style: dashed; color: var(--no-check-ink); background: var(--no-check-bg); }
 .day-cell.is-selected { outline: 2px solid #315e9e; outline-offset: 2px; }
 .day-number { font-size: .8rem; font-weight: 750; }
 .record-dot { width: 6px; height: 6px; border-radius: 50%; background: #7998c3; }
 .day-cell.has-red .record-dot { background: #cf6a5f; }
 .day-cell.has-orange .record-dot { background: #d8902f; }
 .day-cell.has-red.has-orange .record-dot { background: linear-gradient(90deg, #cf6a5f 50%, #d8902f 50%); }
+.day-cell.has-no-check .record-dot { background: #8070ad; }
 .legend { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #edf0f4; color: #747f91; font-size: .68rem; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
 .legend-dot.salmon { background: #ffd8d1; border: 1px solid #e9a69d; }
 .legend-dot.orange { background: #ffe0b1; border: 1px solid #e9b668; }
+.legend-dot.no-check { border: 1px dashed var(--no-check-line); background: var(--no-check-bg); }
 
 .day-card h3 { margin: 0; color: #253c60; font-size: 1.2rem; line-height: 1.25; }
 .day-subtitle { margin: 9px 0 24px; color: var(--muted); font-size: .78rem; line-height: 1.5; }

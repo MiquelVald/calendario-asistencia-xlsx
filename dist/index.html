@@ -130,8 +130,8 @@
             </div>
             <div class="summary-chips" aria-label="Resumen">
               <span><strong id="dateCount">0</strong> fechas</span>
-              <span class="summary-red"><strong id="redCount">0</strong> entradas en rojo</span>
-              <span class="summary-orange"><strong id="orangeCount">0</strong> salidas en naranja</span>
+              <span class="summary-red"><strong id="redCount">0</strong> <span id="redLabel">llegadas tardías</span></span>
+              <span class="summary-orange"><strong id="orangeCount">0</strong> <span id="orangeLabel">salidas tempranas</span></span>
             </div>
           </div>
 
@@ -151,8 +151,9 @@
               </div>
               <div id="calendarGrid" class="calendar-grid"></div>
               <div class="legend" aria-label="Leyenda del calendario">
-                <span><i class="legend-dot salmon"></i> Entrada marcada en rojo</span>
-                <span><i class="legend-dot orange"></i> Salida marcada en naranja</span>
+                <span><i class="legend-dot salmon"></i> Llegada tardía</span>
+                <span><i class="legend-dot orange"></i> Salida temprana</span>
+                <span><i class="legend-dot no-check"></i> Sin entrada ni salida</span>
               </div>
             </article>
 
@@ -166,14 +167,14 @@
                     <svg viewBox="0 0 24 24"><path d="M11 5H5v14h6M14 8l4 4-4 4M9 12h9" /></svg>
                   </span>
                   <span><small>Entrada</small><strong id="entryTime"></strong></span>
-                  <span id="entryBadge" class="status-badge red" hidden>Rojo</span>
+                  <span id="entryBadge" class="status-badge red" hidden>Llegada tardía</span>
                 </div>
                 <div class="time-row">
                   <span class="time-icon exit" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><path d="M13 5h6v14h-6M10 8l-4 4 4 4M6 12h9" /></svg>
                   </span>
                   <span><small>Salida</small><strong id="exitTime"></strong></span>
-                  <span id="exitBadge" class="status-badge orange" hidden>Naranja</span>
+                  <span id="exitBadge" class="status-badge orange" hidden>Salida temprana</span>
                 </div>
                 <p id="dayMessage" class="day-message"></p>
               </div>
@@ -186,6 +187,6 @@
     </div>
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20261028-2"></script>
   </body>
 </html>
