@@ -346,7 +346,8 @@ function renderPeopleList() {
     option.textContent = person.name;
     option.addEventListener("mouseenter", () => {
       state.activeOption = index;
-      renderPeopleList();
+      els.personList.querySelector(".is-active")?.classList.remove("is-active");
+      option.classList.add("is-active");
     });
     option.addEventListener("click", () => selectPerson(person));
     els.personList.append(option);
