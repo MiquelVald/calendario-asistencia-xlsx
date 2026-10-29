@@ -32,26 +32,16 @@ const els = {
   entryBadge: document.querySelector("#entryBadge"),
   exitBadge: document.querySelector("#exitBadge"),
   dayMessage: document.querySelector("#dayMessage"),
+  selectionMode: document.querySelector("#selectionMode"),
+  selectionSummary: document.querySelector("#selectionSummary"),
+  justificationNotes: document.querySelector("#justificationNotes"),
   quickGenerateButton: document.querySelector("#quickGenerateButton"),
   quickGenerateNote: document.querySelector("#quickGenerateNote"),
-  generator: document.querySelector("#generator"),
+  quickMessage: document.querySelector("#quickMessage"),
   templateInput: document.querySelector("#templateInput"),
   templateButton: document.querySelector("#templateButton"),
-  templateStatus: document.querySelector("#templateStatus"),
-  employeeEmpty: document.querySelector("#employeeEmpty"),
-  employeeMatch: document.querySelector("#employeeMatch"),
-  employeeCode: document.querySelector("#employeeCode"),
-  employeeName: document.querySelector("#employeeName"),
-  employeePosition: document.querySelector("#employeePosition"),
-  employeeUnit: document.querySelector("#employeeUnit"),
-  employeeSelectLabel: document.querySelector("#employeeSelectLabel"),
+  employeeResolver: document.querySelector("#employeeResolver"),
   employeeSelect: document.querySelector("#employeeSelect"),
-  incidentsHint: document.querySelector("#incidentsHint"),
-  incidentsList: document.querySelector("#incidentsList"),
-  selectedIncidentCount: document.querySelector("#selectedIncidentCount"),
-  justificationComments: document.querySelector("#justificationComments"),
-  generatorMessage: document.querySelector("#generatorMessage"),
-  generateButton: document.querySelector("#generateButton"),
 };
 
 const state = {
@@ -67,6 +57,8 @@ const state = {
   employees: [],
   selectedEmployee: null,
   incidents: [],
+  selectedIncidentKeys: new Set(),
+  selectionMode: false,
 };
 
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
@@ -177,19 +169,11 @@ els.employeeSelect.addEventListener("change", () => {
   updateGeneratorAvailability();
 });
 
-els.incidentsList.addEventListener("change", (event) => {
-  if (!event.target.matches('input[type="checkbox"]')) return;
-  const selected = selectedIncidents();
-  if (selected.length > 10) {
-    event.target.checked = false;
-    setGeneratorMessage("El formato admite como máximo 10 incidencias.", "error");
-  } else {
-    setGeneratorMessage("");
-  }
-  updateGeneratorAvailability();
+els.selectionMode.addEventListener("change", () => {
+  state.selectionMode = els.selectionMode.checked;
+  setGeneratorMessage(state.selectionMode ? "Marca o desmarca los días directamente en el calendario." : "");
+  renderCalendar();
 });
-
-els.generateButton.addEventListener("click", generateJustificationFile);
 
 els.quickGenerateButton.addEventListener("click", () => {
   if (!state.templateBytes) {
@@ -200,8 +184,8 @@ els.quickGenerateButton.addEventListener("click", () => {
   }
   if (!state.selectedEmployee) {
     setGeneratorMessage("Confirma qué empleado corresponde a la persona seleccionada.", "error");
-    els.generator.scrollIntoView({ behavior: "smooth", block: "start" });
-    setTimeout(() => els.employeeSelect.focus(), 450);
+    els.employeeResolver.hidden = false;
+    setTimeout(() => els.employeeSelect.focus(), 0);
     return;
   }
   generateJustificationFile();
@@ -439,6 +423,11 @@ function hydrateData(records) {
   state.selectedDate = null;
   state.currentMonth = null;
   state.activeOption = 0;
+  state.incidents = [];
+  state.selectedIncidentKeys = new Set();
+  state.selectionMode = false;
+  els.selectionMode.checked = false;
+  els.justificationNotes.value = "";
 
   els.personPanel.classList.remove("is-disabled");
   els.personPanel.removeAttribute("aria-disabled");
@@ -447,7 +436,6 @@ function hydrateData(records) {
   els.personSearch.value = "";
   els.personHint.textContent = `${state.people.length} ${state.people.length === 1 ? "persona disponible" : "personas disponibles"}.`;
   els.results.hidden = true;
-  els.generator.hidden = true;
   filterPeople("");
   setTimeout(() => els.personSearch.focus(), 0);
 }
@@ -513,9 +501,9 @@ function selectPerson(person) {
   state.currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
   const firstAlert = person.records.find((record) => !nonWorkingDay(record.date) && (record.entryAlert || record.exitAlert)) || person.records[0];
   state.selectedDate = firstAlert.dateKey;
+  renderGenerator();
   renderResults();
   els.results.hidden = false;
-  renderGenerator();
   els.results.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -548,19 +536,16 @@ async function loadTemplateWorkbook(file) {
 
   els.templateButton.disabled = true;
   els.templateButton.textContent = "Leyendo formato…";
-  const previousTemplateStatus = els.templateStatus.textContent;
   const hadTemplate = Boolean(state.templateBytes);
   try {
     const bytes = await file.arrayBuffer();
-    const employees = applyTemplateWorkbook(bytes, file.name);
+    applyTemplateWorkbook(bytes, file.name);
     try {
       await saveStoredTemplate(bytes, file.name);
-      els.templateStatus.textContent = `${file.name} · ${employees.length} empleados · guardado en este navegador`;
     } catch (storageError) {
       console.warn("El formato solo estará disponible durante esta sesión.", storageError);
-      els.templateStatus.textContent = `${file.name} · ${employees.length} empleados · disponible durante esta sesión`;
     }
-    setGeneratorMessage(state.selectedEmployee ? "Empleado identificado automáticamente." : "Selecciona el empleado correspondiente en la lista.");
+    setGeneratorMessage(state.selectedEmployee ? "Formato listo para generar." : "Selecciona el empleado correspondiente en la lista.");
   } catch (error) {
     console.error(error);
     if (!hadTemplate) {
@@ -568,16 +553,13 @@ async function loadTemplateWorkbook(file) {
       state.templateFileName = "";
       state.employees = [];
       state.selectedEmployee = null;
-      els.templateStatus.hidden = true;
       renderEmployeeMatch(false);
-    } else {
-      els.templateStatus.hidden = false;
-      els.templateStatus.textContent = previousTemplateStatus;
     }
     setGeneratorMessage(error.message || "No pude leer el formato base.", "error");
   } finally {
     els.templateButton.disabled = false;
-    els.templateButton.textContent = state.templateBytes ? "Cambiar formato base" : "Cargar formato base";
+    els.templateButton.textContent = "Cambiar formato";
+    els.templateButton.hidden = !state.templateBytes;
     updateGeneratorAvailability();
   }
 }
@@ -596,7 +578,7 @@ function applyTemplateWorkbook(bytes, fileName) {
   state.selectedEmployee = findEmployeeForPerson(state.selectedPerson?.name);
   populateEmployeeSelect();
   renderEmployeeMatch(Boolean(state.selectedEmployee));
-  els.templateStatus.hidden = false;
+  els.templateButton.hidden = false;
   updateGeneratorAvailability();
   return employees;
 }
@@ -606,9 +588,9 @@ async function restoreStoredTemplate() {
   try {
     const stored = await readStoredTemplate();
     if (!stored?.bytes) return;
-    const employees = applyTemplateWorkbook(stored.bytes, stored.name || "Formato base guardado.xlsx");
-    els.templateStatus.textContent = `${state.templateFileName} · ${employees.length} empleados · guardado en este navegador`;
-    els.templateButton.textContent = "Cambiar formato base";
+    applyTemplateWorkbook(stored.bytes, stored.name || "Formato base guardado.xlsx");
+    els.templateButton.textContent = "Cambiar formato";
+    els.templateButton.hidden = false;
   } catch (error) {
     console.error("No se pudo restaurar el formato guardado.", error);
   }
@@ -708,9 +690,11 @@ function populateEmployeeSelect() {
 
 function renderGenerator() {
   if (!state.selectedPerson) return;
-  els.generator.hidden = false;
   state.incidents = justificationIncidents(state.selectedPerson.records);
-  renderIncidents();
+  state.selectedIncidentKeys = new Set(state.incidents.slice(0, 10).map((incident) => incident.dateKey));
+  state.selectionMode = false;
+  els.selectionMode.checked = false;
+  els.justificationNotes.value = "";
   if (state.employees.length) {
     state.selectedEmployee = findEmployeeForPerson(state.selectedPerson.name);
     populateEmployeeSelect();
@@ -724,100 +708,37 @@ function renderGenerator() {
 
 function justificationIncidents(records) {
   const grouped = groupRecordsByDate(records);
-  return [...grouped.entries()].map(([dateKey, dateRecords]) => ({
-    dateKey,
-    date: dateRecords[0].date,
-    entry: dateRecords[0].entry,
-    exit: dateRecords[0].exit,
-    entryAlert: dateRecords.some((record) => record.entryAlert),
-    exitAlert: dateRecords.some((record) => record.exitAlert),
-  })).filter((incident) => !nonWorkingDay(incident.date) && (incident.entryAlert || incident.exitAlert)).sort((a, b) => a.date - b.date);
-}
-
-function renderIncidents() {
-  els.incidentsList.replaceChildren();
-  if (!state.incidents.length) {
-    const empty = document.createElement("div");
-    empty.className = "incidents-empty";
-    empty.textContent = "Esta persona no tiene llegadas tardías ni salidas tempranas en días laborables.";
-    els.incidentsList.append(empty);
-    els.incidentsHint.textContent = "No hay incidencias para incluir.";
-    updateGeneratorAvailability();
-    return;
-  }
-
-  els.incidentsHint.textContent = state.incidents.length > 10
-    ? `Se detectaron ${state.incidents.length}. El formato admite 10 por archivo; seleccioné las primeras 10.`
-    : `Se detectaron ${state.incidents.length}. Puedes desmarcar las que no quieras justificar.`;
-
-  state.incidents.forEach((incident, index) => {
-    const label = document.createElement("label");
-    label.className = "incident-option";
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.dataset.index = String(index);
-    checkbox.checked = index < 10;
-
-    const copy = document.createElement("span");
-    copy.className = "incident-copy";
-    const date = document.createElement("strong");
-    date.textContent = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" }).format(incident.date);
-    const times = document.createElement("span");
-    times.textContent = `Entrada ${incident.entry} · Salida ${incident.exit}`;
-    copy.append(date, times);
-
-    const tags = document.createElement("span");
-    tags.className = "incident-tags";
-    if (incident.entryAlert) {
-      const tag = document.createElement("i");
-      tag.className = "late";
-      tag.textContent = "Llegada tardía";
-      tags.append(tag);
-    }
-    if (incident.exitAlert) {
-      const tag = document.createElement("i");
-      tag.className = "early";
-      tag.textContent = "Salida temprana";
-      tags.append(tag);
-    }
-    label.append(checkbox, copy, tags);
-    els.incidentsList.append(label);
-  });
-  updateGeneratorAvailability();
+  return [...grouped.entries()].map(([dateKey, dateRecords]) => {
+    const hasNoCheck = dateRecords.every((record) => !record.hasEntry && !record.hasExit);
+    return {
+      dateKey,
+      date: dateRecords[0].date,
+      entry: dateRecords[0].entry,
+      exit: dateRecords[0].exit,
+      entryAlert: dateRecords.some((record) => record.entryAlert),
+      exitAlert: dateRecords.some((record) => record.exitAlert),
+      hasNoCheck,
+    };
+  }).filter((incident) => !nonWorkingDay(incident.date) && (incident.entryAlert || incident.exitAlert || incident.hasNoCheck)).sort((a, b) => a.date - b.date);
 }
 
 function renderEmployeeMatch(hasMatch) {
-  els.employeeSelectLabel.hidden = !state.employees.length;
   if (!hasMatch || !state.selectedEmployee) {
-    els.employeeMatch.hidden = true;
-    els.employeeEmpty.hidden = false;
-    els.employeeEmpty.textContent = state.employees.length
-      ? "No encontré una coincidencia exacta. Selecciona el empleado manualmente."
-      : "Carga el formato base para buscar a la persona en el directorio.";
+    els.employeeResolver.hidden = !state.employees.length;
     if (state.employees.length) els.employeeSelect.value = "";
     return;
   }
-  const employee = state.selectedEmployee;
-  els.employeeEmpty.hidden = true;
-  els.employeeMatch.hidden = false;
-  els.employeeCode.textContent = employee.code;
-  els.employeeName.textContent = employee.name;
-  els.employeePosition.textContent = employee.position || "Puesto no registrado";
-  els.employeeUnit.textContent = employee.unit || "Unidad no registrada";
-  els.employeeSelect.value = String(employee.code);
+  els.employeeResolver.hidden = true;
+  els.employeeSelect.value = String(state.selectedEmployee.code);
 }
 
 function selectedIncidents() {
-  return [...els.incidentsList.querySelectorAll('input[type="checkbox"]:checked')]
-    .map((checkbox) => state.incidents[Number(checkbox.dataset.index)])
-    .filter(Boolean);
+  return state.incidents.filter((incident) => state.selectedIncidentKeys.has(incident.dateKey));
 }
 
 function updateGeneratorAvailability() {
   const count = selectedIncidents().length;
-  els.selectedIncidentCount.textContent = `${count} ${count === 1 ? "seleccionada" : "seleccionadas"}`;
-  const ready = Boolean(state.templateBytes && state.selectedEmployee && count >= 1 && count <= 10);
-  els.generateButton.disabled = !ready;
+  els.selectionSummary.textContent = `${count} ${count === 1 ? "seleccionado" : "seleccionados"}`;
   els.quickGenerateButton.disabled = Boolean(state.templateBytes && state.selectedEmployee && (count < 1 || count > 10));
   if (!state.templateBytes) {
     els.quickGenerateButton.textContent = "Configurar formato";
@@ -826,17 +747,17 @@ function updateGeneratorAvailability() {
     els.quickGenerateButton.textContent = "Revisar empleado";
     els.quickGenerateNote.textContent = "El formato está guardado; falta confirmar la persona del directorio.";
   } else if (!count) {
-    els.quickGenerateButton.textContent = "Sin incidencias";
-    els.quickGenerateNote.textContent = "No hay llegadas tardías ni salidas tempranas para generar.";
+    els.quickGenerateButton.textContent = "Sin días seleccionados";
+    els.quickGenerateNote.textContent = "Activa las casillas del calendario y elige al menos un día.";
   } else {
     els.quickGenerateButton.textContent = "Generar Excel";
-    els.quickGenerateNote.textContent = "Usará el formato base guardado en este navegador.";
+    els.quickGenerateNote.textContent = `${count} ${count === 1 ? "día se incluirá" : "días se incluirán"} en el formato.`;
   }
 }
 
 function setGeneratorMessage(message, type = "") {
-  els.generatorMessage.textContent = message;
-  els.generatorMessage.className = `generator-message${type ? ` is-${type}` : ""}`;
+  els.quickMessage.textContent = message;
+  els.quickMessage.className = `quick-message${type ? ` is-${type}` : ""}`;
 }
 
 async function generateJustificationFile() {
@@ -850,8 +771,6 @@ async function generateJustificationFile() {
     return;
   }
 
-  els.generateButton.disabled = true;
-  els.generateButton.textContent = "Generando…";
   els.quickGenerateButton.disabled = true;
   els.quickGenerateButton.textContent = "Generando…";
   setGeneratorMessage("Preparando la copia del formato…");
@@ -861,7 +780,7 @@ async function generateJustificationFile() {
     const sheetFile = zip.file(sheetPath);
     if (!sheetFile) throw new Error("No encontré la hoja FORMATO dentro del archivo.");
     const sheetDocument = parseXml(await sheetFile.async("string"), "la hoja FORMATO");
-    fillJustificationSheet(sheetDocument, state.selectedEmployee, incidents, els.justificationComments.value);
+    fillJustificationSheet(sheetDocument, state.selectedEmployee, incidents, els.justificationNotes.value);
     zip.file(sheetPath, new XMLSerializer().serializeToString(sheetDocument));
     await enableFullCalculation(zip);
 
@@ -880,7 +799,6 @@ async function generateJustificationFile() {
     console.error(error);
     setGeneratorMessage(error.message || "No pude generar el formato.", "error");
   } finally {
-    els.generateButton.textContent = "Descargar formato XLSX";
     updateGeneratorAvailability();
   }
 }
@@ -903,6 +821,10 @@ function fillJustificationSheet(document, employee, incidents, comments) {
     const row = rows[index];
     const entryTime = timeFraction(incident.entry);
     const exitTime = timeFraction(incident.exit);
+    if (incident.hasNoCheck) {
+      setNumericCell(document, `C${row}`, excelDateSerial(incident.date));
+      setNumericCell(document, `E${row}`, excelDateSerial(incident.date));
+    }
     if (entryTime !== null) {
       setNumericCell(document, `C${row}`, excelDateSerial(incident.date));
       setNumericCell(document, `D${row}`, entryTime);
@@ -912,7 +834,11 @@ function fillJustificationSheet(document, employee, incidents, comments) {
       setNumericCell(document, `F${row}`, exitTime);
     }
   });
-  setInlineTextCell(document, "A49", cleanSpaces(comments));
+  setInlineTextCell(document, "A49", normalizeNotes(comments));
+}
+
+function normalizeNotes(value) {
+  return String(value || "").replace(/\r\n?/g, "\n").split("\n").map(cleanSpaces).join("\n").trim();
 }
 
 async function worksheetPath(zip, sheetName) {
@@ -1053,6 +979,8 @@ function renderCalendar() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const totalCells = Math.ceil((firstWeekdayMonday + daysInMonth) / 7) * 7;
   els.calendarGrid.replaceChildren();
+  els.calendarGrid.classList.toggle("is-selecting", state.selectionMode);
+  const incidentsByDate = new Map(state.incidents.map((incident) => [incident.dateKey, incident]));
 
   for (let index = 0; index < totalCells; index += 1) {
     const day = index - firstWeekdayMonday + 1;
@@ -1070,6 +998,8 @@ function renderCalendar() {
     const hasRed = !nonWorking && dayRecords.some((record) => record.entryAlert);
     const hasOrange = !nonWorking && dayRecords.some((record) => record.exitAlert);
     const hasNoCheck = !nonWorking && dayRecords.length > 0 && dayRecords.every((record) => !record.hasEntry && !record.hasExit);
+    const justificationIncident = incidentsByDate.get(key);
+    const isJustificationSelected = state.selectedIncidentKeys.has(key);
     const cell = document.createElement(dayRecords.length ? "button" : "span");
     if (dayRecords.length) cell.type = "button";
     cell.className = [
@@ -1080,9 +1010,11 @@ function renderCalendar() {
       hasOrange ? "has-orange" : "",
       hasNoCheck ? "has-no-check" : "",
       nonWorking ? "is-non-working" : "",
+      justificationIncident ? "is-justification-candidate" : "",
+      isJustificationSelected ? "is-justification-selected" : "",
       state.selectedDate === key ? "is-selected" : "",
     ].filter(Boolean).join(" ");
-    cell.innerHTML = `<span class="day-number">${day}</span>${dayRecords.length ? '<span class="record-dot"></span>' : ""}`;
+    cell.innerHTML = `<span class="day-number">${day}</span>${justificationIncident ? '<span class="calendar-checkbox" aria-hidden="true"></span>' : ""}${dayRecords.length ? '<span class="record-dot"></span>' : ""}`;
     if (dayRecords.length) {
       const alerts = [
         hasRed ? "llegada tardía" : "",
@@ -1090,9 +1022,23 @@ function renderCalendar() {
         hasNoCheck ? "sin entrada ni salida" : "",
         nonWorking ? `día no laborable: ${nonWorking.label}` : "",
       ].filter(Boolean).join(" y ");
-      cell.setAttribute("aria-label", `${fullDateFormatter.format(date)}${alerts ? `, ${alerts}` : ", con registro"}`);
+      const selectionLabel = justificationIncident ? `, ${isJustificationSelected ? "seleccionado" : "no seleccionado"} para justificar` : "";
+      cell.setAttribute("aria-label", `${fullDateFormatter.format(date)}${alerts ? `, ${alerts}` : ", con registro"}${selectionLabel}`);
+      if (justificationIncident) cell.setAttribute("aria-pressed", String(isJustificationSelected));
       cell.addEventListener("click", () => {
         state.selectedDate = key;
+        if (state.selectionMode && justificationIncident) {
+          if (state.selectedIncidentKeys.has(key)) {
+            state.selectedIncidentKeys.delete(key);
+            setGeneratorMessage("");
+          } else if (state.selectedIncidentKeys.size >= 10) {
+            setGeneratorMessage("El formato admite como máximo 10 días por archivo.", "error");
+          } else {
+            state.selectedIncidentKeys.add(key);
+            setGeneratorMessage("");
+          }
+          updateGeneratorAvailability();
+        }
         renderCalendar();
         renderDayDetails(key);
       });
