@@ -182,12 +182,69 @@
             </aside>
           </div>
         </section>
+
+        <section id="generator" class="generator" hidden aria-labelledby="generatorTitle">
+          <div class="generator-header">
+            <div>
+              <p class="eyebrow">Formato de justificación</p>
+              <h2 id="generatorTitle">Genera el Excel listo para revisar</h2>
+              <p>Elige las incidencias, carga el formato base y descarga una copia rellenada. Todo se procesa en este navegador.</p>
+            </div>
+            <span class="generator-step">3</span>
+          </div>
+
+          <div class="generator-grid">
+            <article class="generator-card">
+              <h3>1. Formato base</h3>
+              <p>Carga <strong>2026 Formato de Vacaciones y Permisos OK.xlsx</strong>. El directorio de empleados permanece en tu equipo.</p>
+              <input id="templateInput" class="visually-hidden" type="file" accept=".xlsx" />
+              <button id="templateButton" class="secondary-button" type="button">Cargar formato base</button>
+              <div id="templateStatus" class="template-status" hidden></div>
+            </article>
+
+            <article class="generator-card">
+              <h3>2. Empleado</h3>
+              <div id="employeeEmpty" class="generator-empty">Carga el formato base para buscar a la persona en el directorio.</div>
+              <div id="employeeMatch" class="employee-match" hidden>
+                <div class="employee-code"><span>Número</span><strong id="employeeCode"></strong></div>
+                <div><strong id="employeeName"></strong><span id="employeePosition"></span><span id="employeeUnit"></span></div>
+              </div>
+              <label id="employeeSelectLabel" class="employee-select-label" for="employeeSelect" hidden>
+                Selecciona el empleado manualmente
+                <select id="employeeSelect"></select>
+              </label>
+            </article>
+          </div>
+
+          <article class="generator-card incidents-card">
+            <div class="incidents-heading">
+              <div>
+                <h3>3. Incidencias que se incluirán</h3>
+                <p id="incidentsHint"></p>
+              </div>
+              <span id="selectedIncidentCount" class="selection-count">0 seleccionadas</span>
+            </div>
+            <div id="incidentsList" class="incidents-list"></div>
+          </article>
+
+          <article class="generator-card comments-card">
+            <label for="justificationComments">Comentarios o motivo</label>
+            <textarea id="justificationComments" rows="4" placeholder="Ej. 24/08/2026 - Olvidé registrar mi entrada..."></textarea>
+            <p>Este texto se colocará en el área de comentarios del formato.</p>
+          </article>
+
+          <div class="generator-actions">
+            <div id="generatorMessage" class="generator-message" role="status" aria-live="polite"></div>
+            <button id="generateButton" class="primary-button" type="button" disabled>Descargar formato XLSX</button>
+          </div>
+        </section>
       </main>
 
       <footer>Calendario de asistencia · Los datos permanecen en tu dispositivo</footer>
     </div>
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-    <script src="./app.js?v=20261028-3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js"></script>
+    <script src="./app.js?v=20261029-1"></script>
   </body>
 </html>

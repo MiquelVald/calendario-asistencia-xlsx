@@ -32,6 +32,24 @@ const els = {
   entryBadge: document.querySelector("#entryBadge"),
   exitBadge: document.querySelector("#exitBadge"),
   dayMessage: document.querySelector("#dayMessage"),
+  generator: document.querySelector("#generator"),
+  templateInput: document.querySelector("#templateInput"),
+  templateButton: document.querySelector("#templateButton"),
+  templateStatus: document.querySelector("#templateStatus"),
+  employeeEmpty: document.querySelector("#employeeEmpty"),
+  employeeMatch: document.querySelector("#employeeMatch"),
+  employeeCode: document.querySelector("#employeeCode"),
+  employeeName: document.querySelector("#employeeName"),
+  employeePosition: document.querySelector("#employeePosition"),
+  employeeUnit: document.querySelector("#employeeUnit"),
+  employeeSelectLabel: document.querySelector("#employeeSelectLabel"),
+  employeeSelect: document.querySelector("#employeeSelect"),
+  incidentsHint: document.querySelector("#incidentsHint"),
+  incidentsList: document.querySelector("#incidentsList"),
+  selectedIncidentCount: document.querySelector("#selectedIncidentCount"),
+  justificationComments: document.querySelector("#justificationComments"),
+  generatorMessage: document.querySelector("#generatorMessage"),
+  generateButton: document.querySelector("#generateButton"),
 };
 
 const state = {
@@ -42,6 +60,11 @@ const state = {
   currentMonth: null,
   activeOption: -1,
   filteredPeople: [],
+  templateBytes: null,
+  templateFileName: "",
+  employees: [],
+  selectedEmployee: null,
+  incidents: [],
 };
 
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
@@ -129,6 +152,36 @@ document.addEventListener("click", (event) => {
 
 els.prevMonth.addEventListener("click", () => changeMonth(-1));
 els.nextMonth.addEventListener("click", () => changeMonth(1));
+
+els.templateButton.addEventListener("click", () => {
+  els.templateInput.value = "";
+  els.templateInput.click();
+});
+
+els.templateInput.addEventListener("change", (event) => {
+  const [file] = event.target.files;
+  if (file) loadTemplateWorkbook(file);
+});
+
+els.employeeSelect.addEventListener("change", () => {
+  state.selectedEmployee = state.employees.find((employee) => String(employee.code) === els.employeeSelect.value) || null;
+  renderEmployeeMatch(Boolean(state.selectedEmployee));
+  updateGeneratorAvailability();
+});
+
+els.incidentsList.addEventListener("change", (event) => {
+  if (!event.target.matches('input[type="checkbox"]')) return;
+  const selected = selectedIncidents();
+  if (selected.length > 10) {
+    event.target.checked = false;
+    setGeneratorMessage("El formato admite como máximo 10 incidencias.", "error");
+  } else {
+    setGeneratorMessage("");
+  }
+  updateGeneratorAvailability();
+});
+
+els.generateButton.addEventListener("click", generateJustificationFile);
 
 async function loadWorkbook(file) {
   clearError();
@@ -368,6 +421,7 @@ function hydrateData(records) {
   els.personSearch.value = "";
   els.personHint.textContent = `${state.people.length} ${state.people.length === 1 ? "persona disponible" : "personas disponibles"}.`;
   els.results.hidden = true;
+  els.generator.hidden = true;
   filterPeople("");
   setTimeout(() => els.personSearch.focus(), 0);
 }
@@ -435,6 +489,7 @@ function selectPerson(person) {
   state.selectedDate = firstAlert.dateKey;
   renderResults();
   els.results.hidden = false;
+  renderGenerator();
   els.results.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -452,6 +507,424 @@ function renderResults() {
   els.orangeLabel.textContent = earlyCount === 1 ? "salida temprana" : "salidas tempranas";
   renderCalendar();
   renderDayDetails(state.selectedDate);
+}
+
+async function loadTemplateWorkbook(file) {
+  setGeneratorMessage("");
+  if (!/\.xlsx$/i.test(file.name)) {
+    setGeneratorMessage("Selecciona el formato base con extensión .xlsx.", "error");
+    return;
+  }
+  if (typeof XLSX === "undefined") {
+    setGeneratorMessage("No se pudo iniciar el lector de Excel. Recarga la página.", "error");
+    return;
+  }
+
+  els.templateButton.disabled = true;
+  els.templateButton.textContent = "Leyendo formato…";
+  try {
+    const bytes = await file.arrayBuffer();
+    const workbook = XLSX.read(bytes, { type: "array", cellDates: true, cellText: true });
+    if (!workbook.Sheets.FORMATO || !workbook.Sheets.EMPLEADOS) {
+      throw new Error("El archivo debe contener las hojas FORMATO y EMPLEADOS.");
+    }
+    const employees = extractEmployees(workbook.Sheets.EMPLEADOS);
+    if (!employees.length) throw new Error("No encontré empleados en el formato base.");
+
+    state.templateBytes = bytes.slice(0);
+    state.templateFileName = file.name;
+    state.employees = employees;
+    state.selectedEmployee = findEmployeeForPerson(state.selectedPerson?.name);
+    populateEmployeeSelect();
+    renderEmployeeMatch(Boolean(state.selectedEmployee));
+    els.templateStatus.hidden = false;
+    els.templateStatus.textContent = `${file.name} · ${employees.length} empleados disponibles`;
+    setGeneratorMessage(state.selectedEmployee ? "Empleado identificado automáticamente." : "Selecciona el empleado correspondiente en la lista.");
+  } catch (error) {
+    console.error(error);
+    state.templateBytes = null;
+    state.templateFileName = "";
+    state.employees = [];
+    state.selectedEmployee = null;
+    els.templateStatus.hidden = true;
+    renderEmployeeMatch(false);
+    setGeneratorMessage(error.message || "No pude leer el formato base.", "error");
+  } finally {
+    els.templateButton.disabled = false;
+    els.templateButton.textContent = "Cambiar formato base";
+    updateGeneratorAvailability();
+  }
+}
+
+function extractEmployees(sheet) {
+  if (!sheet?.["!ref"]) return [];
+  const range = XLSX.utils.decode_range(sheet["!ref"]);
+  const employees = [];
+  for (let row = range.s.r + 1; row <= range.e.r; row += 1) {
+    const code = cellText(getCell(sheet, row, 0));
+    const name = cellText(getCell(sheet, row, 1));
+    if (!code || !name) continue;
+    employees.push({
+      code,
+      name: cleanSpaces(name),
+      position: cleanSpaces(cellText(getCell(sheet, row, 2))),
+      unit: cleanSpaces(cellText(getCell(sheet, row, 3))),
+      manager: cleanSpaces(cellText(getCell(sheet, row, 4))),
+      departmentHead: cleanSpaces(cellText(getCell(sheet, row, 5))),
+      subdirector: cleanSpaces(cellText(getCell(sheet, row, 6))),
+      director: cleanSpaces(cellText(getCell(sheet, row, 7))),
+      matchKey: personMatchKey(name),
+    });
+  }
+  return employees.sort((a, b) => collator.compare(a.name, b.name));
+}
+
+function personMatchKey(value) {
+  let text = normalizeText(value).replace(/[^a-z0-9]+/g, " ");
+  text = cleanSpaces(text).replace(/^c p\s+/, "cp ").replace(/^m i c\s+/, "mic ");
+  const prefixes = new Set(["arq", "arqta", "c", "cp", "cpc", "dr", "dra", "ing", "isc", "lae", "lcp", "lic", "mdu", "mic", "ms", "mti", "mtra", "mtro"]);
+  const tokens = text.split(" ").filter(Boolean);
+  while (tokens.length && prefixes.has(tokens[0])) tokens.shift();
+  return tokens.sort().join(" ");
+}
+
+function findEmployeeForPerson(name) {
+  if (!name || !state.employees.length) return null;
+  const key = personMatchKey(name);
+  return state.employees.find((employee) => employee.matchKey === key) || null;
+}
+
+function populateEmployeeSelect() {
+  els.employeeSelect.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Selecciona una persona";
+  els.employeeSelect.append(placeholder);
+  state.employees.forEach((employee) => {
+    const option = document.createElement("option");
+    option.value = String(employee.code);
+    option.textContent = `${employee.code} · ${employee.name}`;
+    els.employeeSelect.append(option);
+  });
+  els.employeeSelect.value = state.selectedEmployee ? String(state.selectedEmployee.code) : "";
+}
+
+function renderGenerator() {
+  if (!state.selectedPerson) return;
+  els.generator.hidden = false;
+  state.incidents = justificationIncidents(state.selectedPerson.records);
+  renderIncidents();
+  if (state.employees.length) {
+    state.selectedEmployee = findEmployeeForPerson(state.selectedPerson.name);
+    populateEmployeeSelect();
+    renderEmployeeMatch(Boolean(state.selectedEmployee));
+  } else {
+    renderEmployeeMatch(false);
+  }
+  setGeneratorMessage("");
+  updateGeneratorAvailability();
+}
+
+function justificationIncidents(records) {
+  const grouped = groupRecordsByDate(records);
+  return [...grouped.entries()].map(([dateKey, dateRecords]) => ({
+    dateKey,
+    date: dateRecords[0].date,
+    entry: dateRecords[0].entry,
+    exit: dateRecords[0].exit,
+    entryAlert: dateRecords.some((record) => record.entryAlert),
+    exitAlert: dateRecords.some((record) => record.exitAlert),
+  })).filter((incident) => !nonWorkingDay(incident.date) && (incident.entryAlert || incident.exitAlert)).sort((a, b) => a.date - b.date);
+}
+
+function renderIncidents() {
+  els.incidentsList.replaceChildren();
+  if (!state.incidents.length) {
+    const empty = document.createElement("div");
+    empty.className = "incidents-empty";
+    empty.textContent = "Esta persona no tiene llegadas tardías ni salidas tempranas en días laborables.";
+    els.incidentsList.append(empty);
+    els.incidentsHint.textContent = "No hay incidencias para incluir.";
+    updateGeneratorAvailability();
+    return;
+  }
+
+  els.incidentsHint.textContent = state.incidents.length > 10
+    ? `Se detectaron ${state.incidents.length}. El formato admite 10 por archivo; seleccioné las primeras 10.`
+    : `Se detectaron ${state.incidents.length}. Puedes desmarcar las que no quieras justificar.`;
+
+  state.incidents.forEach((incident, index) => {
+    const label = document.createElement("label");
+    label.className = "incident-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.dataset.index = String(index);
+    checkbox.checked = index < 10;
+
+    const copy = document.createElement("span");
+    copy.className = "incident-copy";
+    const date = document.createElement("strong");
+    date.textContent = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" }).format(incident.date);
+    const times = document.createElement("span");
+    times.textContent = `Entrada ${incident.entry} · Salida ${incident.exit}`;
+    copy.append(date, times);
+
+    const tags = document.createElement("span");
+    tags.className = "incident-tags";
+    if (incident.entryAlert) {
+      const tag = document.createElement("i");
+      tag.className = "late";
+      tag.textContent = "Llegada tardía";
+      tags.append(tag);
+    }
+    if (incident.exitAlert) {
+      const tag = document.createElement("i");
+      tag.className = "early";
+      tag.textContent = "Salida temprana";
+      tags.append(tag);
+    }
+    label.append(checkbox, copy, tags);
+    els.incidentsList.append(label);
+  });
+  updateGeneratorAvailability();
+}
+
+function renderEmployeeMatch(hasMatch) {
+  els.employeeSelectLabel.hidden = !state.employees.length;
+  if (!hasMatch || !state.selectedEmployee) {
+    els.employeeMatch.hidden = true;
+    els.employeeEmpty.hidden = false;
+    els.employeeEmpty.textContent = state.employees.length
+      ? "No encontré una coincidencia exacta. Selecciona el empleado manualmente."
+      : "Carga el formato base para buscar a la persona en el directorio.";
+    if (state.employees.length) els.employeeSelect.value = "";
+    return;
+  }
+  const employee = state.selectedEmployee;
+  els.employeeEmpty.hidden = true;
+  els.employeeMatch.hidden = false;
+  els.employeeCode.textContent = employee.code;
+  els.employeeName.textContent = employee.name;
+  els.employeePosition.textContent = employee.position || "Puesto no registrado";
+  els.employeeUnit.textContent = employee.unit || "Unidad no registrada";
+  els.employeeSelect.value = String(employee.code);
+}
+
+function selectedIncidents() {
+  return [...els.incidentsList.querySelectorAll('input[type="checkbox"]:checked')]
+    .map((checkbox) => state.incidents[Number(checkbox.dataset.index)])
+    .filter(Boolean);
+}
+
+function updateGeneratorAvailability() {
+  const count = selectedIncidents().length;
+  els.selectedIncidentCount.textContent = `${count} ${count === 1 ? "seleccionada" : "seleccionadas"}`;
+  els.generateButton.disabled = !state.templateBytes || !state.selectedEmployee || count < 1 || count > 10;
+}
+
+function setGeneratorMessage(message, type = "") {
+  els.generatorMessage.textContent = message;
+  els.generatorMessage.className = `generator-message${type ? ` is-${type}` : ""}`;
+}
+
+async function generateJustificationFile() {
+  const incidents = selectedIncidents();
+  if (!state.templateBytes || !state.selectedEmployee || !incidents.length) {
+    setGeneratorMessage("Carga el formato, confirma el empleado y selecciona al menos una incidencia.", "error");
+    return;
+  }
+  if (typeof JSZip === "undefined") {
+    setGeneratorMessage("No se pudo iniciar el generador de archivos. Recarga la página.", "error");
+    return;
+  }
+
+  els.generateButton.disabled = true;
+  els.generateButton.textContent = "Generando…";
+  setGeneratorMessage("Preparando la copia del formato…");
+  try {
+    const zip = await JSZip.loadAsync(state.templateBytes);
+    const sheetPath = await worksheetPath(zip, "FORMATO");
+    const sheetFile = zip.file(sheetPath);
+    if (!sheetFile) throw new Error("No encontré la hoja FORMATO dentro del archivo.");
+    const sheetDocument = parseXml(await sheetFile.async("string"), "la hoja FORMATO");
+    fillJustificationSheet(sheetDocument, state.selectedEmployee, incidents, els.justificationComments.value);
+    zip.file(sheetPath, new XMLSerializer().serializeToString(sheetDocument));
+    await enableFullCalculation(zip);
+
+    const blob = await zip.generateAsync({
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    });
+    const reportDate = latestDate(state.selectedPerson.records);
+    const month = `${reportDate.getFullYear()}-${String(reportDate.getMonth() + 1).padStart(2, "0")}`;
+    const fileName = `Justificacion_${safeFileName(state.selectedPerson.name)}_${month}.xlsx`;
+    downloadBlob(blob, fileName);
+    setGeneratorMessage(`Archivo generado: ${fileName}`, "success");
+  } catch (error) {
+    console.error(error);
+    setGeneratorMessage(error.message || "No pude generar el formato.", "error");
+  } finally {
+    els.generateButton.textContent = "Descargar formato XLSX";
+    updateGeneratorAvailability();
+  }
+}
+
+function fillJustificationSheet(document, employee, incidents, comments) {
+  const reportDate = latestDate(state.selectedPerson.records);
+  setNumericCell(document, "A6", Number(employee.code));
+  setNumericCell(document, "H2", excelDateSerial(reportDate));
+  setFormulaCache(document, "B6", employee.name);
+  setFormulaCache(document, "G6", employee.position);
+  setFormulaCache(document, "H6", employee.unit);
+  setFormulaCache(document, "A54", employee.name);
+  setFormulaCache(document, "C54", employee.manager);
+  setFormulaCache(document, "G54", employee.departmentHead);
+  setFormulaCache(document, "A58", employee.subdirector);
+
+  const rows = [22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
+  rows.forEach((row) => ["C", "D", "E", "F"].forEach((column) => clearCell(document, `${column}${row}`)));
+  incidents.slice(0, 10).forEach((incident, index) => {
+    const row = rows[index];
+    const entryTime = timeFraction(incident.entry);
+    const exitTime = timeFraction(incident.exit);
+    if (entryTime !== null) {
+      setNumericCell(document, `C${row}`, excelDateSerial(incident.date));
+      setNumericCell(document, `D${row}`, entryTime);
+    }
+    if (exitTime !== null) {
+      setNumericCell(document, `E${row}`, excelDateSerial(incident.date));
+      setNumericCell(document, `F${row}`, exitTime);
+    }
+  });
+  setInlineTextCell(document, "A49", cleanSpaces(comments));
+}
+
+async function worksheetPath(zip, sheetName) {
+  const workbookDocument = parseXml(await zip.file("xl/workbook.xml").async("string"), "el libro de Excel");
+  const relationshipsDocument = parseXml(await zip.file("xl/_rels/workbook.xml.rels").async("string"), "las relaciones del libro");
+  const sheet = [...workbookDocument.getElementsByTagNameNS("*", "sheet")].find((item) => item.getAttribute("name") === sheetName);
+  if (!sheet) throw new Error(`No encontré la hoja ${sheetName}.`);
+  const relationshipId = sheet.getAttribute("r:id") || sheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+  const relationship = [...relationshipsDocument.getElementsByTagNameNS("*", "Relationship")].find((item) => item.getAttribute("Id") === relationshipId);
+  if (!relationship) throw new Error(`No pude localizar el archivo interno de ${sheetName}.`);
+  return resolveZipPath("xl/workbook.xml", relationship.getAttribute("Target"));
+}
+
+function resolveZipPath(basePath, targetPath) {
+  if (targetPath.startsWith("/")) return targetPath.slice(1);
+  const parts = basePath.split("/");
+  parts.pop();
+  targetPath.split("/").forEach((part) => {
+    if (part === "..") parts.pop();
+    else if (part && part !== ".") parts.push(part);
+  });
+  return parts.join("/");
+}
+
+function parseXml(source, label) {
+  const document = new DOMParser().parseFromString(source, "application/xml");
+  if (document.getElementsByTagName("parsererror").length) throw new Error(`No pude interpretar ${label}.`);
+  return document;
+}
+
+function findCellElement(document, reference) {
+  return [...document.getElementsByTagNameNS("*", "c")].find((cell) => cell.getAttribute("r") === reference) || null;
+}
+
+function cellValueElement(document, cell) {
+  let value = [...cell.children].find((child) => child.localName === "v");
+  if (!value) {
+    value = document.createElementNS(document.documentElement.namespaceURI, "v");
+    cell.append(value);
+  }
+  return value;
+}
+
+function removeCellChildren(cell, localNames) {
+  [...cell.children].forEach((child) => {
+    if (localNames.includes(child.localName)) child.remove();
+  });
+}
+
+function setNumericCell(document, reference, value) {
+  const cell = findCellElement(document, reference);
+  if (!cell) throw new Error(`El formato no contiene la celda ${reference}.`);
+  cell.removeAttribute("t");
+  removeCellChildren(cell, ["f", "is"]);
+  cellValueElement(document, cell).textContent = String(value);
+}
+
+function setFormulaCache(document, reference, value) {
+  const cell = findCellElement(document, reference);
+  if (!cell) throw new Error(`El formato no contiene la celda ${reference}.`);
+  cell.setAttribute("t", "str");
+  removeCellChildren(cell, ["is"]);
+  cellValueElement(document, cell).textContent = value || "";
+}
+
+function setInlineTextCell(document, reference, value) {
+  const cell = findCellElement(document, reference);
+  if (!cell) throw new Error(`El formato no contiene la celda ${reference}.`);
+  cell.setAttribute("t", "inlineStr");
+  removeCellChildren(cell, ["f", "v", "is"]);
+  const inlineString = document.createElementNS(document.documentElement.namespaceURI, "is");
+  const text = document.createElementNS(document.documentElement.namespaceURI, "t");
+  if (/^\s|\s$/.test(value)) text.setAttribute("xml:space", "preserve");
+  text.textContent = value;
+  inlineString.append(text);
+  cell.append(inlineString);
+}
+
+function clearCell(document, reference) {
+  const cell = findCellElement(document, reference);
+  if (!cell) throw new Error(`El formato no contiene la celda ${reference}.`);
+  cell.removeAttribute("t");
+  removeCellChildren(cell, ["f", "v", "is"]);
+}
+
+async function enableFullCalculation(zip) {
+  const path = "xl/workbook.xml";
+  const document = parseXml(await zip.file(path).async("string"), "el libro de Excel");
+  let calculation = [...document.documentElement.children].find((child) => child.localName === "calcPr");
+  if (!calculation) {
+    calculation = document.createElementNS(document.documentElement.namespaceURI, "calcPr");
+    document.documentElement.append(calculation);
+  }
+  calculation.setAttribute("calcMode", "auto");
+  calculation.setAttribute("fullCalcOnLoad", "1");
+  calculation.setAttribute("forceFullCalc", "1");
+  zip.file(path, new XMLSerializer().serializeToString(document));
+}
+
+function excelDateSerial(date) {
+  return Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(1899, 11, 30)) / 86400000);
+}
+
+function timeFraction(value) {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return (Number(match[1]) * 60 + Number(match[2])) / 1440;
+}
+
+function latestDate(records) {
+  return records.reduce((latest, record) => record.date > latest ? record.date : latest, records[0].date);
+}
+
+function safeFileName(value) {
+  return cleanSpaces(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function renderCalendar() {
