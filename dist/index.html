@@ -179,6 +179,12 @@
                 </div>
                 <p id="dayMessage" class="day-message"></p>
               </div>
+              <div class="quick-generate">
+                <button id="quickGenerateButton" class="primary-button quick-generate-button" type="button">
+                  Configurar formato
+                </button>
+                <p id="quickGenerateNote">Carga el formato base una sola vez en este navegador.</p>
+              </div>
             </aside>
           </div>
         </section>
@@ -196,7 +202,7 @@
           <div class="generator-grid">
             <article class="generator-card">
               <h3>1. Formato base</h3>
-              <p>Carga <strong>2026 Formato de Vacaciones y Permisos OK.xlsx</strong>. El directorio de empleados permanece en tu equipo.</p>
+              <p>Cárgalo una sola vez. Se guardará únicamente en este navegador y podrás reemplazarlo cuando cambie.</p>
               <input id="templateInput" class="visually-hidden" type="file" accept=".xlsx" />
               <button id="templateButton" class="secondary-button" type="button">Cargar formato base</button>
               <div id="templateStatus" class="template-status" hidden></div>
@@ -245,6 +251,6 @@
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js"></script>
-    <script src="./app.js?v=20261029-1"></script>
+    <script src="./app.js?v=20261029-2"></script>
   </body>
 </html>

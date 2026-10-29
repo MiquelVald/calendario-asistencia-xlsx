@@ -32,6 +32,8 @@ const els = {
   entryBadge: document.querySelector("#entryBadge"),
   exitBadge: document.querySelector("#exitBadge"),
   dayMessage: document.querySelector("#dayMessage"),
+  quickGenerateButton: document.querySelector("#quickGenerateButton"),
+  quickGenerateNote: document.querySelector("#quickGenerateNote"),
   generator: document.querySelector("#generator"),
   templateInput: document.querySelector("#templateInput"),
   templateButton: document.querySelector("#templateButton"),
@@ -70,6 +72,12 @@ const state = {
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
 const fullDateFormatter = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const collator = new Intl.Collator("es-MX", { sensitivity: "base" });
+const templateStorage = {
+  database: "calendario-asistencia-local",
+  version: 1,
+  store: "archivos",
+  key: "formato-justificaciones",
+};
 
 els.fileInput.addEventListener("change", (event) => {
   const [file] = event.target.files;
@@ -182,6 +190,24 @@ els.incidentsList.addEventListener("change", (event) => {
 });
 
 els.generateButton.addEventListener("click", generateJustificationFile);
+
+els.quickGenerateButton.addEventListener("click", () => {
+  if (!state.templateBytes) {
+    setGeneratorMessage("Selecciona el formato base. Quedará guardado en este navegador para las próximas visitas.");
+    els.templateInput.value = "";
+    els.templateInput.click();
+    return;
+  }
+  if (!state.selectedEmployee) {
+    setGeneratorMessage("Confirma qué empleado corresponde a la persona seleccionada.", "error");
+    els.generator.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => els.employeeSelect.focus(), 450);
+    return;
+  }
+  generateJustificationFile();
+});
+
+restoreStoredTemplate();
 
 async function loadWorkbook(file) {
   clearError();
@@ -522,38 +548,109 @@ async function loadTemplateWorkbook(file) {
 
   els.templateButton.disabled = true;
   els.templateButton.textContent = "Leyendo formato…";
+  const previousTemplateStatus = els.templateStatus.textContent;
+  const hadTemplate = Boolean(state.templateBytes);
   try {
     const bytes = await file.arrayBuffer();
-    const workbook = XLSX.read(bytes, { type: "array", cellDates: true, cellText: true });
-    if (!workbook.Sheets.FORMATO || !workbook.Sheets.EMPLEADOS) {
-      throw new Error("El archivo debe contener las hojas FORMATO y EMPLEADOS.");
+    const employees = applyTemplateWorkbook(bytes, file.name);
+    try {
+      await saveStoredTemplate(bytes, file.name);
+      els.templateStatus.textContent = `${file.name} · ${employees.length} empleados · guardado en este navegador`;
+    } catch (storageError) {
+      console.warn("El formato solo estará disponible durante esta sesión.", storageError);
+      els.templateStatus.textContent = `${file.name} · ${employees.length} empleados · disponible durante esta sesión`;
     }
-    const employees = extractEmployees(workbook.Sheets.EMPLEADOS);
-    if (!employees.length) throw new Error("No encontré empleados en el formato base.");
-
-    state.templateBytes = bytes.slice(0);
-    state.templateFileName = file.name;
-    state.employees = employees;
-    state.selectedEmployee = findEmployeeForPerson(state.selectedPerson?.name);
-    populateEmployeeSelect();
-    renderEmployeeMatch(Boolean(state.selectedEmployee));
-    els.templateStatus.hidden = false;
-    els.templateStatus.textContent = `${file.name} · ${employees.length} empleados disponibles`;
     setGeneratorMessage(state.selectedEmployee ? "Empleado identificado automáticamente." : "Selecciona el empleado correspondiente en la lista.");
   } catch (error) {
     console.error(error);
-    state.templateBytes = null;
-    state.templateFileName = "";
-    state.employees = [];
-    state.selectedEmployee = null;
-    els.templateStatus.hidden = true;
-    renderEmployeeMatch(false);
+    if (!hadTemplate) {
+      state.templateBytes = null;
+      state.templateFileName = "";
+      state.employees = [];
+      state.selectedEmployee = null;
+      els.templateStatus.hidden = true;
+      renderEmployeeMatch(false);
+    } else {
+      els.templateStatus.hidden = false;
+      els.templateStatus.textContent = previousTemplateStatus;
+    }
     setGeneratorMessage(error.message || "No pude leer el formato base.", "error");
   } finally {
     els.templateButton.disabled = false;
-    els.templateButton.textContent = "Cambiar formato base";
+    els.templateButton.textContent = state.templateBytes ? "Cambiar formato base" : "Cargar formato base";
     updateGeneratorAvailability();
   }
+}
+
+function applyTemplateWorkbook(bytes, fileName) {
+  const workbook = XLSX.read(bytes, { type: "array", cellDates: true, cellText: true });
+  if (!workbook.Sheets.FORMATO || !workbook.Sheets.EMPLEADOS) {
+    throw new Error("El archivo debe contener las hojas FORMATO y EMPLEADOS.");
+  }
+  const employees = extractEmployees(workbook.Sheets.EMPLEADOS);
+  if (!employees.length) throw new Error("No encontré empleados en el formato base.");
+
+  state.templateBytes = bytes.slice(0);
+  state.templateFileName = fileName;
+  state.employees = employees;
+  state.selectedEmployee = findEmployeeForPerson(state.selectedPerson?.name);
+  populateEmployeeSelect();
+  renderEmployeeMatch(Boolean(state.selectedEmployee));
+  els.templateStatus.hidden = false;
+  updateGeneratorAvailability();
+  return employees;
+}
+
+async function restoreStoredTemplate() {
+  if (typeof indexedDB === "undefined" || typeof XLSX === "undefined") return;
+  try {
+    const stored = await readStoredTemplate();
+    if (!stored?.bytes) return;
+    const employees = applyTemplateWorkbook(stored.bytes, stored.name || "Formato base guardado.xlsx");
+    els.templateStatus.textContent = `${state.templateFileName} · ${employees.length} empleados · guardado en este navegador`;
+    els.templateButton.textContent = "Cambiar formato base";
+  } catch (error) {
+    console.error("No se pudo restaurar el formato guardado.", error);
+  }
+}
+
+function openTemplateDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(templateStorage.database, templateStorage.version);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(templateStorage.store)) {
+        request.result.createObjectStore(templateStorage.store);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("No se pudo abrir el almacenamiento local."));
+  });
+}
+
+async function saveStoredTemplate(bytes, name) {
+  if (typeof indexedDB === "undefined") return;
+  const database = await openTemplateDatabase();
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction(templateStorage.store, "readwrite");
+    transaction.objectStore(templateStorage.store).put({ name, bytes: bytes.slice(0), savedAt: Date.now() }, templateStorage.key);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error || new Error("No se pudo guardar el formato base."));
+    transaction.onabort = () => reject(transaction.error || new Error("Se canceló el guardado del formato base."));
+  });
+  database.close();
+  navigator.storage?.persist?.().catch(() => false);
+}
+
+async function readStoredTemplate() {
+  const database = await openTemplateDatabase();
+  const value = await new Promise((resolve, reject) => {
+    const transaction = database.transaction(templateStorage.store, "readonly");
+    const request = transaction.objectStore(templateStorage.store).get(templateStorage.key);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error || new Error("No se pudo leer el formato guardado."));
+  });
+  database.close();
+  return value;
 }
 
 function extractEmployees(sheet) {
@@ -719,7 +816,22 @@ function selectedIncidents() {
 function updateGeneratorAvailability() {
   const count = selectedIncidents().length;
   els.selectedIncidentCount.textContent = `${count} ${count === 1 ? "seleccionada" : "seleccionadas"}`;
-  els.generateButton.disabled = !state.templateBytes || !state.selectedEmployee || count < 1 || count > 10;
+  const ready = Boolean(state.templateBytes && state.selectedEmployee && count >= 1 && count <= 10);
+  els.generateButton.disabled = !ready;
+  els.quickGenerateButton.disabled = Boolean(state.templateBytes && state.selectedEmployee && (count < 1 || count > 10));
+  if (!state.templateBytes) {
+    els.quickGenerateButton.textContent = "Configurar formato";
+    els.quickGenerateNote.textContent = "Carga el formato base una sola vez en este navegador.";
+  } else if (!state.selectedEmployee) {
+    els.quickGenerateButton.textContent = "Revisar empleado";
+    els.quickGenerateNote.textContent = "El formato está guardado; falta confirmar la persona del directorio.";
+  } else if (!count) {
+    els.quickGenerateButton.textContent = "Sin incidencias";
+    els.quickGenerateNote.textContent = "No hay llegadas tardías ni salidas tempranas para generar.";
+  } else {
+    els.quickGenerateButton.textContent = "Generar Excel";
+    els.quickGenerateNote.textContent = "Usará el formato base guardado en este navegador.";
+  }
 }
 
 function setGeneratorMessage(message, type = "") {
@@ -740,6 +852,8 @@ async function generateJustificationFile() {
 
   els.generateButton.disabled = true;
   els.generateButton.textContent = "Generando…";
+  els.quickGenerateButton.disabled = true;
+  els.quickGenerateButton.textContent = "Generando…";
   setGeneratorMessage("Preparando la copia del formato…");
   try {
     const zip = await JSZip.loadAsync(state.templateBytes);

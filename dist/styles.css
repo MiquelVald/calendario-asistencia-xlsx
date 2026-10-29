@@ -337,7 +337,7 @@ h1 {
 .calendar-card,
 .day-card { border: 1px solid var(--line); border-radius: 18px; background: #fff; }
 .calendar-card { padding: 24px; }
-.day-card { padding: 26px; background: #f9fbfe; }
+.day-card { min-height: 100%; padding: 26px; display: flex; flex-direction: column; background: #f9fbfe; }
 .calendar-toolbar { display: grid; grid-template-columns: 38px 1fr 38px; align-items: center; gap: 12px; margin-bottom: 20px; }
 .calendar-toolbar h3 { margin: 0; text-align: center; color: #233b60; font-size: 1.05rem; }
 .icon-button { width: 38px; height: 38px; border: 1px solid #dce3ed; border-radius: 10px; display: grid; place-items: center; color: #4d5e76; background: white; cursor: pointer; }
@@ -390,6 +390,9 @@ button.day-cell:hover { transform: translateY(-1px); border-color: #acbdd3; box-
 .status-badge.red { color: var(--salmon-ink); background: #ffe0db; }
 .status-badge.orange { color: var(--orange-ink); background: #ffe6bd; }
 .day-message { min-height: 20px; margin: 5px 2px 0; color: #6d7789; font-size: .72rem; line-height: 1.45; }
+.quick-generate { margin-top: auto; padding-top: 24px; }
+.quick-generate-button { width: 100%; }
+.quick-generate p { margin: 9px 2px 0; color: #7c8798; font-size: .64rem; line-height: 1.45; text-align: center; }
 
 .generator { margin-top: 34px; padding: 34px; border: 1px solid rgba(218,225,237,.95); border-radius: 24px; background: white; box-shadow: var(--shadow); }
 .generator[hidden] { display: none; }

@@ -2,7 +2,7 @@
 
 Aplicación web estática que lee un archivo XLSX en el navegador, permite buscar una persona y muestra sus fechas en un calendario.
 
-También puede cargar el formato institucional de vacaciones y permisos, relacionar a la persona con la hoja `EMPLEADOS` y descargar una copia con número de empleado, datos del puesto, firmas e incidencias de llegada tardía o salida temprana. La plantilla y el directorio se procesan únicamente en el navegador y no se incluyen en el repositorio.
+También puede cargar una sola vez el formato institucional de vacaciones y permisos, relacionar a la persona con la hoja `EMPLEADOS` y descargar desde el calendario una copia con número de empleado, datos del puesto, firmas e incidencias de llegada tardía o salida temprana. La plantilla se conserva en IndexedDB únicamente para ese navegador y dispositivo; no se incluye en el repositorio ni se envía a un servidor.
 
 ## Uso local
 
