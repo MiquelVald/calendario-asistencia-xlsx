@@ -156,13 +156,13 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6 6 6-6 6" /></svg>
                 </button>
               </div>
-              <div class="calendar-selection-bar">
+              <div id="selectionBar" class="calendar-selection-bar">
                 <label class="selection-toggle" for="selectionMode">
                   <input id="selectionMode" type="checkbox" />
                   <span class="toggle-track" aria-hidden="true"><i></i></span>
                   <span>
                     <strong>Elegir días a justificar</strong>
-                    <small>Activa las casillas y marca únicamente los días que incluirás.</small>
+                    <small>Los días marcados se agregarán al Excel.</small>
                   </span>
                 </label>
                 <span id="selectionSummary" class="selection-summary">0 seleccionados</span>
@@ -215,7 +215,7 @@
                 <button id="quickGenerateButton" class="primary-button quick-generate-button" type="button">
                   Configurar formato
                 </button>
-                <div class="quick-generate-meta">
+                <div id="quickGenerateMeta" class="quick-generate-meta">
                   <p id="quickGenerateNote">Carga el formato base una sola vez en este navegador.</p>
                   <button id="templateButton" class="text-button" type="button" hidden>Cambiar formato</button>
                 </div>
@@ -230,6 +230,6 @@
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js"></script>
-    <script src="./app.js?v=20261103-2"></script>
+    <script src="./app.js?v=20261103-3"></script>
   </body>
 </html>

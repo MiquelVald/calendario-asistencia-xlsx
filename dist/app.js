@@ -40,10 +40,12 @@ const els = {
   exitBadge: document.querySelector("#exitBadge"),
   dayMessage: document.querySelector("#dayMessage"),
   selectionMode: document.querySelector("#selectionMode"),
+  selectionBar: document.querySelector("#selectionBar"),
   selectionSummary: document.querySelector("#selectionSummary"),
   justificationNotes: document.querySelector("#justificationNotes"),
   quickGenerateButton: document.querySelector("#quickGenerateButton"),
   quickGenerateNote: document.querySelector("#quickGenerateNote"),
+  quickGenerateMeta: document.querySelector("#quickGenerateMeta"),
   quickMessage: document.querySelector("#quickMessage"),
   templateInput: document.querySelector("#templateInput"),
   templateButton: document.querySelector("#templateButton"),
@@ -833,6 +835,8 @@ function selectedIncidents() {
 function updateGeneratorAvailability() {
   const count = selectedIncidents().length;
   els.selectionSummary.textContent = `${count} ${count === 1 ? "seleccionado" : "seleccionados"}`;
+  els.selectionBar.classList.toggle("has-selection", count > 0);
+  els.quickGenerateMeta.classList.toggle("has-selection", count > 0);
   els.quickGenerateButton.disabled = Boolean(state.templateBytes && state.selectedEmployee && (count < 1 || count > 10));
   if (!state.templateBytes) {
     els.quickGenerateButton.textContent = "Configurar formato";
@@ -844,8 +848,8 @@ function updateGeneratorAvailability() {
     els.quickGenerateButton.textContent = "Sin días seleccionados";
     els.quickGenerateNote.textContent = "Activa las casillas del calendario y elige al menos un día.";
   } else {
-    els.quickGenerateButton.textContent = "Generar Excel";
-    els.quickGenerateNote.textContent = `${count} ${count === 1 ? "día se incluirá" : "días se incluirán"} en el formato.`;
+    els.quickGenerateButton.textContent = `Generar Excel · ${count} ${count === 1 ? "día" : "días"}`;
+    els.quickGenerateNote.textContent = `El Excel incluirá ${count} ${count === 1 ? "día seleccionado" : "días seleccionados"}.`;
   }
 }
 
@@ -1109,6 +1113,10 @@ function renderCalendar() {
       state.selectedDate === key ? "is-selected" : "",
     ].filter(Boolean).join(" ");
     cell.innerHTML = `<span class="day-number">${day}</span>${justificationIncident ? '<span class="calendar-checkbox" aria-hidden="true"></span>' : ""}${dayRecords.length ? '<span class="record-dot"></span>' : ""}`;
+    if (nonWorking) {
+      cell.dataset.tooltip = "Día inhábil";
+      cell.title = "Día inhábil";
+    }
     if (dayRecords.length) {
       const alerts = [
         hasRed ? "llegada tardía" : "",
