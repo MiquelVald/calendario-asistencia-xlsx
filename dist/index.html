@@ -54,8 +54,8 @@
             <div class="step-heading">
               <span class="step-number">1</span>
               <div>
-                <h2>Carga el archivo</h2>
-                <p>Usa un XLSX con las columnas Nombre, Fecha, Entrada y Salida.</p>
+                <h2 id="reportStepTitle">Carga el archivo</h2>
+                <p id="reportStepCopy">Usa un XLSX con las columnas Nombre, Fecha, Entrada y Salida.</p>
               </div>
             </div>
 
@@ -69,6 +69,16 @@
               <small>Formato XLSX o XLS</small>
             </label>
 
+            <div id="serverReportPicker" class="server-report-picker" hidden>
+              <label for="reportMonthSelect">¿De qué mes quieres generar el reporte?</label>
+              <select id="reportMonthSelect">
+                <option value="">Elige un mes</option>
+              </select>
+              <p id="reportMonthMeta">Se utilizará el archivo más reciente de la carpeta seleccionada.</p>
+              <button id="loadReportButton" class="primary-button" type="button" disabled>Abrir reporte</button>
+              <button id="manualUploadButton" class="text-button" type="button">Cargar un archivo manualmente</button>
+            </div>
+
             <div id="fileStatus" class="file-status" hidden aria-live="polite">
               <span class="file-status-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7zM14 3v5h4M9.5 13h6M9.5 16h6" /></svg>
@@ -81,7 +91,7 @@
             </div>
             <p class="local-note">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 10v6M12 7.2v.1" /></svg>
-              El archivo se procesa en este navegador. No se guarda ni se envía a un servidor.
+              El reporte se procesa en este navegador.
             </p>
             <div id="errorMessage" class="error-message" hidden role="alert"></div>
           </div>
@@ -220,6 +230,6 @@
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js"></script>
-    <script src="./app.js?v=20261103-1"></script>
+    <script src="./app.js?v=20261103-2"></script>
   </body>
 </html>

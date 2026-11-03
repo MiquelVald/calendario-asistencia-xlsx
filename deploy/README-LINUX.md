@@ -50,7 +50,7 @@ sudo systemctl enable --now justificaciones
 curl http://127.0.0.1:8080/api/health
 ```
 
-La respuesta debe incluir `"templateReady":true`.
+La respuesta debe incluir `"templateReady":true` y `"reportsReady":true`. El servidor mostrará las carpetas mensuales ubicadas en `/mnt/documentos/2026 Formatos/2026 Reporte Lista de Asistencia` y elegirá el archivo XLSX con la fecha más reciente en su nombre.
 
 ## 4. Nginx
 

@@ -7,6 +7,13 @@ const els = {
   fileName: document.querySelector("#fileName"),
   fileMeta: document.querySelector("#fileMeta"),
   replaceFile: document.querySelector("#replaceFile"),
+  serverReportPicker: document.querySelector("#serverReportPicker"),
+  reportMonthSelect: document.querySelector("#reportMonthSelect"),
+  reportMonthMeta: document.querySelector("#reportMonthMeta"),
+  loadReportButton: document.querySelector("#loadReportButton"),
+  manualUploadButton: document.querySelector("#manualUploadButton"),
+  reportStepTitle: document.querySelector("#reportStepTitle"),
+  reportStepCopy: document.querySelector("#reportStepCopy"),
   errorMessage: document.querySelector("#errorMessage"),
   personPanel: document.querySelector("#personPanel"),
   personSearch: document.querySelector("#personSearch"),
@@ -59,6 +66,7 @@ const state = {
   incidents: [],
   selectedIncidentKeys: new Set(),
   selectionMode: false,
+  serverReports: [],
 };
 
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
@@ -77,6 +85,30 @@ els.fileInput.addEventListener("change", (event) => {
 });
 
 els.replaceFile.addEventListener("click", () => {
+  if (state.serverReports.length) {
+    els.fileStatus.hidden = true;
+    els.serverReportPicker.hidden = false;
+    return;
+  }
+  els.fileInput.value = "";
+  els.fileInput.click();
+});
+
+els.reportMonthSelect.addEventListener("change", () => {
+  const report = state.serverReports.find((item) => item.id === els.reportMonthSelect.value);
+  els.loadReportButton.disabled = !report;
+  els.reportMonthMeta.textContent = report
+    ? `Se utilizará ${report.fileName}.`
+    : "Se utilizará el archivo más reciente de la carpeta seleccionada.";
+});
+
+els.loadReportButton.addEventListener("click", () => loadServerReport(els.reportMonthSelect.value));
+
+els.manualUploadButton.addEventListener("click", () => {
+  els.serverReportPicker.hidden = true;
+  els.dropZone.hidden = false;
+  els.reportStepTitle.textContent = "Carga el archivo";
+  els.reportStepCopy.textContent = "Usa un XLSX con las columnas Nombre, Fecha, Entrada y Salida.";
   els.fileInput.value = "";
   els.fileInput.click();
 });
@@ -192,6 +224,7 @@ els.quickGenerateButton.addEventListener("click", () => {
 });
 
 initializeTemplate();
+initializeServerReports();
 
 async function loadWorkbook(file) {
   clearError();
@@ -611,6 +644,50 @@ async function initializeTemplate() {
     console.info("El servidor no ofrece un formato base; se usará el guardado en este navegador.", error);
   }
   await restoreStoredTemplate();
+}
+
+async function initializeServerReports() {
+  try {
+    const response = await fetch("./api/reports", { cache: "no-store" });
+    if (!response.ok) return;
+    const payload = await response.json();
+    if (!Array.isArray(payload.months) || !payload.months.length) return;
+    state.serverReports = payload.months;
+    els.reportStepTitle.textContent = "Elige el reporte";
+    els.reportStepCopy.textContent = "Selecciona un mes y se abrirá automáticamente el último XLSX de su carpeta.";
+    els.reportMonthSelect.replaceChildren(new Option("Elige un mes", ""));
+    state.serverReports.forEach((report) => {
+      els.reportMonthSelect.add(new Option(report.label, report.id));
+    });
+    els.dropZone.hidden = true;
+    els.serverReportPicker.hidden = false;
+  } catch (error) {
+    console.info("No se encontró el catálogo de reportes del servidor; se conservará la carga manual.", error);
+  }
+}
+
+async function loadServerReport(monthId) {
+  const report = state.serverReports.find((item) => item.id === monthId);
+  if (!report) return;
+  clearError();
+  els.loadReportButton.disabled = true;
+  els.loadReportButton.textContent = "Leyendo reporte…";
+  try {
+    const response = await fetch(`./api/reports/${encodeURIComponent(report.id)}/latest`, { cache: "no-store" });
+    if (!response.ok) throw new Error("El servidor no pudo abrir el reporte seleccionado.");
+    const bytes = await response.arrayBuffer();
+    const fileName = decodeURIComponent(response.headers.get("X-Report-Name") || report.fileName);
+    await loadWorkbook(new File([bytes], fileName, {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }));
+    els.serverReportPicker.hidden = true;
+  } catch (error) {
+    console.error(error);
+    showError(error.message || "No pude cargar el reporte del servidor.");
+  } finally {
+    els.loadReportButton.disabled = false;
+    els.loadReportButton.textContent = "Abrir reporte";
+  }
 }
 
 function openTemplateDatabase() {

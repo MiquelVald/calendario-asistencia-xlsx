@@ -26,3 +26,5 @@ La generación preserva el libro base y modifica únicamente las celdas necesari
 ## Servidor privado Linux
 
 El proyecto incluye un servidor Node sin dependencias que sirve la aplicación y puede cargar automáticamente la plantilla desde una ruta local del servidor. La guía para montar `//10.218.108.49/Documentos` con CIFS, ejecutar la aplicación con systemd y publicarla mediante Nginx está en `deploy/README-LINUX.md`.
+
+En el servidor privado, la aplicación también puede listar las carpetas mensuales de asistencia y cargar automáticamente el archivo `dd_mm_aaaa.xlsx` más reciente de cada una. La carga manual permanece disponible como respaldo.
