@@ -903,8 +903,9 @@ async function generateJustificationFile() {
 
 function fillJustificationSheet(document, employee, incidents, comments) {
   const reportDate = latestDate(state.selectedPerson.records);
+  const formatDate = lastWorkingDayOfMonth(reportDate);
   setNumericCell(document, "A6", Number(employee.code));
-  setNumericCell(document, "H2", excelDateSerial(reportDate));
+  setNumericCell(document, "H2", excelDateSerial(formatDate));
   setFormulaCache(document, "B6", employee.name);
   setFormulaCache(document, "G6", employee.position);
   setFormulaCache(document, "H6", employee.unit);
@@ -1048,6 +1049,12 @@ function timeFraction(value) {
 
 function latestDate(records) {
   return records.reduce((latest, record) => record.date > latest ? record.date : latest, records[0].date);
+}
+
+function lastWorkingDayOfMonth(date) {
+  const candidate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  while (nonWorkingDay(candidate)) candidate.setDate(candidate.getDate() - 1);
+  return candidate;
 }
 
 function safeFileName(value) {
