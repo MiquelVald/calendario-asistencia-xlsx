@@ -191,7 +191,7 @@ els.quickGenerateButton.addEventListener("click", () => {
   generateJustificationFile();
 });
 
-restoreStoredTemplate();
+initializeTemplate();
 
 async function loadWorkbook(file) {
   clearError();
@@ -594,6 +594,23 @@ async function restoreStoredTemplate() {
   } catch (error) {
     console.error("No se pudo restaurar el formato guardado.", error);
   }
+}
+
+async function initializeTemplate() {
+  if (typeof XLSX === "undefined") return;
+  try {
+    const response = await fetch("./api/template", { cache: "no-store" });
+    if (response.ok) {
+      const bytes = await response.arrayBuffer();
+      const fileName = decodeURIComponent(response.headers.get("X-Template-Name") || "Formato base del servidor.xlsx");
+      applyTemplateWorkbook(bytes, fileName);
+      els.templateButton.hidden = true;
+      return;
+    }
+  } catch (error) {
+    console.info("El servidor no ofrece un formato base; se usará el guardado en este navegador.", error);
+  }
+  await restoreStoredTemplate();
 }
 
 function openTemplateDatabase() {

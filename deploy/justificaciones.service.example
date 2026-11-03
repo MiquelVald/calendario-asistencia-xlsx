@@ -1,0 +1,23 @@
+[Unit]
+Description=Calendario privado de asistencias y justificaciones
+After=network-online.target mnt-documentos.mount
+Wants=network-online.target
+RequiresMountsFor=/mnt/documentos
+
+[Service]
+Type=simple
+User=justificaciones
+Group=justificaciones
+WorkingDirectory=/opt/justificaciones
+EnvironmentFile=/etc/justificaciones/justificaciones.env
+ExecStart=/usr/bin/node /opt/justificaciones/server.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/mnt/documentos
+
+[Install]
+WantedBy=multi-user.target

@@ -22,3 +22,7 @@ Los descansos obligatorios siguen el artículo 74 de la Ley Federal del Trabajo.
 El proyecto incluye un flujo de GitHub Pages que publica el contenido de `dist` al enviar cambios a la rama `main`. El lector XLSX se carga desde la CDN oficial de SheetJS.
 
 La generación preserva el libro base y modifica únicamente las celdas necesarias mediante OOXML. Usa JSZip para conservar imágenes, estilos, fórmulas, hojas ocultas y configuración de impresión.
+
+## Servidor privado Linux
+
+El proyecto incluye un servidor Node sin dependencias que sirve la aplicación y puede cargar automáticamente la plantilla desde una ruta local del servidor. La guía para montar `//10.218.108.49/Documentos` con CIFS, ejecutar la aplicación con systemd y publicarla mediante Nginx está en `deploy/README-LINUX.md`.
