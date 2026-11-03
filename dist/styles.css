@@ -408,7 +408,7 @@ button.day-cell.is-non-working:hover { transform: none; border-color: var(--non-
 .day-cell.is-non-working::after { content: attr(data-tooltip); position: absolute; z-index: 8; left: 50%; bottom: calc(100% + 7px); padding: 5px 8px; border-radius: 7px; color: white; background: #2e3e56; box-shadow: 0 5px 12px rgba(30,43,63,.2); font-size: .6rem; font-weight: 750; white-space: nowrap; opacity: 0; pointer-events: none; transform: translate(-50%, 3px); transition: opacity 120ms ease, transform 120ms ease; }
 .day-cell.is-non-working:hover::after,
 .day-cell.is-non-working:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
-.day-cell.is-selected { outline: 2px solid #315e9e; outline-offset: 2px; }
+.day-cell.is-selected { outline: none; border-color: #8aa6cb; box-shadow: inset 0 0 0 1px rgba(49,94,158,.22); }
 .day-number { font-size: .8rem; font-weight: 750; }
 .record-dot { width: 6px; height: 6px; border-radius: 50%; background: #7998c3; }
 .day-cell.has-red .record-dot { background: #cf6a5f; }
@@ -419,11 +419,11 @@ button.day-cell.is-non-working:hover { transform: none; border-color: var(--non-
 .day-cell.is-justification-candidate { position: relative; }
 .calendar-checkbox { position: absolute; top: 7px; right: 7px; width: 17px; height: 17px; border: 1.5px solid #91a2b9; border-radius: 5px; display: none; place-items: center; color: white; background: white; font-size: .7rem; font-weight: 900; box-shadow: 0 2px 5px rgba(36,57,87,.08); }
 .calendar-grid.is-selecting .calendar-checkbox { display: grid; }
-.day-cell.is-justification-selected { outline: 3px solid #315e9e; outline-offset: 1px; box-shadow: 0 7px 16px rgba(49,94,158,.2); }
-.day-cell.is-justification-selected .calendar-checkbox { border-color: #315e9e; background: #315e9e; }
+.day-cell.is-justification-selected { box-shadow: inset 0 0 0 1px rgba(49,94,158,.38), 0 3px 8px rgba(49,94,158,.08); }
+.day-cell.is-justification-selected .calendar-checkbox { display: grid; width: 15px; height: 15px; border: 0; border-radius: 50%; color: white; background: #315e9e; box-shadow: 0 2px 5px rgba(49,94,158,.2); font-size: .58rem; }
 .day-cell.is-justification-selected .calendar-checkbox::after { content: "✓"; line-height: 1; }
 .calendar-grid.is-selecting .day-cell.is-justification-candidate { cursor: pointer; }
-.calendar-grid.is-selecting .day-cell.is-justification-selected { box-shadow: inset 0 0 0 2px rgba(49,94,158,.35); }
+.calendar-grid.is-selecting .day-cell.is-justification-selected { box-shadow: inset 0 0 0 1px rgba(49,94,158,.45), 0 3px 8px rgba(49,94,158,.08); }
 .legend { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #edf0f4; color: #747f91; font-size: .68rem; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
