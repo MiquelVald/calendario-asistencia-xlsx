@@ -36,7 +36,7 @@ Agrega a `/etc/fstab`:
 //10.218.108.49/Documentos /mnt/documentos cifs ro,credentials=/etc/justificaciones/smb-credentials,vers=3.0,iocharset=utf8,_netdev,nofail,uid=justificaciones,gid=justificaciones,file_mode=0440,dir_mode=0550 0 0
 ```
 
-Después ejecuta `sudo mount -a` y comprueba que la plantilla exista en `/mnt/documentos/2026 Formatos/2026 Formato de Vacaciones y Permisos OK.xlsx`.
+Después ejecuta `sudo mount -a` y comprueba que la plantilla exista en `/mnt/documentos/2026 Formatos/Septiembre/2026 FormatodeVacacionesyPermisosOK.xlsx`.
 
 ## 3. Aplicación
 
