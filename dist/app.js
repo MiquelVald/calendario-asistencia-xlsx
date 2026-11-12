@@ -74,6 +74,7 @@ const state = {
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
 const fullDateFormatter = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const collator = new Intl.Collator("es-MX", { sensitivity: "base" });
+const earlyExitCutoffMinutes = 15 * 60 + 30;
 const templateStorage = {
   database: "calendario-asistencia-local",
   version: 1,
@@ -297,7 +298,7 @@ function extractRecords(workbook) {
         hasEntry: cellHasValue(entryCell),
         hasExit: cellHasValue(exitCell),
         entryAlert: classifyFill(entryCell) === "red",
-        exitAlert: classifyFill(exitCell) === "orange",
+        exitAlert: !nonWorkingDay(date) && (classifyFill(exitCell) === "orange" || isExitBeforeCutoff(exitCell)),
         sheetName,
       });
     }
@@ -403,6 +404,35 @@ function timeText(cell) {
   const text = String(cell.w ?? cell.v).trim();
   const match = text.match(/^(\d{1,2}):(\d{2})/);
   return match ? `${match[1].padStart(2, "0")}:${match[2]}` : text || "Sin registro";
+}
+
+function isExitBeforeCutoff(cell) {
+  const minutes = spreadsheetTimeMinutes(cell);
+  return minutes !== null && minutes < earlyExitCutoffMinutes;
+}
+
+function spreadsheetTimeMinutes(cell) {
+  if (!cell || cell.v === null || cell.v === undefined || cell.v === "") return null;
+  const value = cell.v;
+  if (value instanceof Date && !Number.isNaN(value.valueOf())) {
+    return value.getHours() * 60 + value.getMinutes() + value.getSeconds() / 60;
+  }
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    const fraction = value % 1;
+    return fraction * 24 * 60;
+  }
+
+  const text = String(cell.w ?? value).trim().toLocaleLowerCase("es-MX").replace(/\./g, "").replace(/\s+/g, "");
+  const match = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?([ap]m)?$/);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const second = Number(match[3] || 0);
+  const meridiem = match[4] || "";
+  if (minute > 59 || second > 59 || (meridiem ? hour < 1 || hour > 12 : hour > 23)) return null;
+  if (meridiem === "am") hour %= 12;
+  if (meridiem === "pm") hour = hour % 12 + 12;
+  return hour * 60 + minute + second / 60;
 }
 
 function cellHasValue(cell) {
