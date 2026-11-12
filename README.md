@@ -13,7 +13,7 @@ Sirve la carpeta `dist` con cualquier servidor HTTP estático y abre la URL loca
 La aplicación busca una hoja que contenga los encabezados `Nombre`, `Fecha`, `Entrada` y `Salida`. Admite nombres agrupados en celdas combinadas o repetidos por fila.
 
 - Una celda roja en `Entrada` marca una llegada tardía en salmón claro.
-- Una salida anterior a las 15:30 en un día hábil marca una salida temprana en naranja claro. También se respeta el indicador naranja que ya venga en la celda de `Salida`.
+- De lunes a jueves, una salida anterior a las 15:30 marca una salida temprana; los viernes, el límite es antes de las 14:00. También se respeta el indicador naranja que ya venga en la celda de `Salida`.
 - Un día laborable sin entrada ni salida se marca en lavanda.
 - Los sábados, domingos y descansos obligatorios federales de México se muestran en gris y no cuentan como inasistencia ni alerta.
 

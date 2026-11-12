@@ -74,7 +74,8 @@ const state = {
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
 const fullDateFormatter = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const collator = new Intl.Collator("es-MX", { sensitivity: "base" });
-const earlyExitCutoffMinutes = 15 * 60 + 30;
+const mondayToThursdayExitCutoffMinutes = 15 * 60 + 30;
+const fridayExitCutoffMinutes = 14 * 60;
 const templateStorage = {
   database: "calendario-asistencia-local",
   version: 1,
@@ -298,7 +299,7 @@ function extractRecords(workbook) {
         hasEntry: cellHasValue(entryCell),
         hasExit: cellHasValue(exitCell),
         entryAlert: classifyFill(entryCell) === "red",
-        exitAlert: !nonWorkingDay(date) && (classifyFill(exitCell) === "orange" || isExitBeforeCutoff(exitCell)),
+        exitAlert: !nonWorkingDay(date) && (classifyFill(exitCell) === "orange" || isExitBeforeCutoff(exitCell, date)),
         sheetName,
       });
     }
@@ -406,9 +407,10 @@ function timeText(cell) {
   return match ? `${match[1].padStart(2, "0")}:${match[2]}` : text || "Sin registro";
 }
 
-function isExitBeforeCutoff(cell) {
+function isExitBeforeCutoff(cell, date) {
   const minutes = spreadsheetTimeMinutes(cell);
-  return minutes !== null && minutes < earlyExitCutoffMinutes;
+  const cutoffMinutes = date.getDay() === 5 ? fridayExitCutoffMinutes : mondayToThursdayExitCutoffMinutes;
+  return minutes !== null && minutes < cutoffMinutes;
 }
 
 function spreadsheetTimeMinutes(cell) {
@@ -685,8 +687,8 @@ async function initializeServerReports() {
     const payload = await response.json();
     if (!Array.isArray(payload.months) || !payload.months.length) return;
     state.serverReports = payload.months;
-    els.reportStepTitle.textContent = "Elige el reporte";
-    els.reportStepCopy.textContent = "Selecciona un mes y se abrirá automáticamente el último XLSX de su carpeta.";
+    els.reportStepTitle.textContent = "Selecciona el mes";
+    els.reportStepCopy.textContent = "Usaremos el archivo más reciente disponible para el periodo que elijas.";
     els.reportMonthSelect.replaceChildren(new Option("Elige un mes", ""));
     state.serverReports.forEach((report) => {
       els.reportMonthSelect.add(new Option(report.label, report.id));
