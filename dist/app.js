@@ -75,6 +75,10 @@ const fullDateFormatter = new Intl.DateTimeFormat("es-MX", { weekday: "long", da
 const collator = new Intl.Collator("es-MX", { sensitivity: "base" });
 const mondayToThursdayExitCutoffMinutes = 15 * 60 + 30;
 const fridayExitCutoffMinutes = 14 * 60;
+const specialAttendanceSchedules = new Map([
+  ["Mayra Yarlet Trejo Cervantes", { entryCutoffMinutes: 8 * 60, mondayToThursdayExitCutoffMinutes: 15 * 60 }],
+  ["María Isabel Castañeda Perea", { entryCutoffMinutes: 8 * 60, mondayToThursdayExitCutoffMinutes: 15 * 60 }],
+].map(([name, schedule]) => [normalizeText(name), schedule]));
 const templateStorage = {
   database: "calendario-asistencia-local",
   version: 1,
@@ -286,6 +290,7 @@ function extractRecords(workbook) {
 
       const date = parseSpreadsheetDate(dateCell);
       if (!date) continue;
+      const attendanceSchedule = specialAttendanceSchedules.get(normalizeText(currentName));
 
       allRecords.push({
         nameKey: normalizeText(currentName),
@@ -296,8 +301,12 @@ function extractRecords(workbook) {
         exit: timeText(exitCell),
         hasEntry: cellHasValue(entryCell),
         hasExit: cellHasValue(exitCell),
-        entryAlert: classifyFill(entryCell) === "red",
-        exitAlert: !nonWorkingDay(date) && (classifyFill(exitCell) === "orange" || isExitBeforeCutoff(exitCell, date)),
+        entryAlert: attendanceSchedule
+          ? isEntryAfterCutoff(entryCell, attendanceSchedule.entryCutoffMinutes)
+          : classifyFill(entryCell) === "red",
+        exitAlert: !nonWorkingDay(date) && (attendanceSchedule
+          ? isExitBeforeCutoff(exitCell, date, attendanceSchedule)
+          : classifyFill(exitCell) === "orange" || isExitBeforeCutoff(exitCell, date)),
         sheetName,
       });
     }
@@ -405,9 +414,16 @@ function timeText(cell) {
   return match ? `${match[1].padStart(2, "0")}:${match[2]}` : text || "Sin registro";
 }
 
-function isExitBeforeCutoff(cell, date) {
+function isEntryAfterCutoff(cell, cutoffMinutes) {
   const minutes = spreadsheetTimeMinutes(cell);
-  const cutoffMinutes = date.getDay() === 5 ? fridayExitCutoffMinutes : mondayToThursdayExitCutoffMinutes;
+  return minutes !== null && minutes > cutoffMinutes;
+}
+
+function isExitBeforeCutoff(cell, date, attendanceSchedule = null) {
+  const minutes = spreadsheetTimeMinutes(cell);
+  const cutoffMinutes = date.getDay() === 5
+    ? fridayExitCutoffMinutes
+    : attendanceSchedule?.mondayToThursdayExitCutoffMinutes ?? mondayToThursdayExitCutoffMinutes;
   return minutes !== null && minutes < cutoffMinutes;
 }
 
