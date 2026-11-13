@@ -108,10 +108,7 @@ els.reportMonthSelect.addEventListener("change", async () => {
 });
 
 els.manualUploadButton.addEventListener("click", () => {
-  els.serverReportPicker.hidden = true;
-  els.dropZone.hidden = false;
-  els.reportStepTitle.textContent = "Carga el archivo";
-  els.reportStepCopy.textContent = "Usa un XLSX con las columnas Nombre, Fecha, Entrada y Salida.";
+  showManualUpload();
   els.fileInput.value = "";
   els.fileInput.click();
 });
@@ -684,9 +681,15 @@ async function initializeTemplate() {
 async function initializeServerReports() {
   try {
     const response = await fetch("./api/reports", { cache: "no-store" });
-    if (!response.ok) return;
+    if (!response.ok) {
+      showManualUpload();
+      return;
+    }
     const payload = await response.json();
-    if (!Array.isArray(payload.months) || !payload.months.length) return;
+    if (!Array.isArray(payload.months) || !payload.months.length) {
+      showManualUpload();
+      return;
+    }
     state.serverReports = payload.months;
     els.reportStepTitle.textContent = "Selecciona el mes";
     els.reportStepCopy.textContent = "Usaremos el archivo más reciente disponible para el periodo que elijas.";
@@ -698,7 +701,15 @@ async function initializeServerReports() {
     els.serverReportPicker.hidden = false;
   } catch (error) {
     console.info("No se encontró el catálogo de reportes del servidor; se conservará la carga manual.", error);
+    showManualUpload();
   }
+}
+
+function showManualUpload() {
+  els.serverReportPicker.hidden = true;
+  els.dropZone.hidden = false;
+  els.reportStepTitle.textContent = "Carga el archivo";
+  els.reportStepCopy.textContent = "Usa un XLSX con las columnas Nombre, Fecha, Entrada y Salida.";
 }
 
 async function loadServerReport(monthId) {
