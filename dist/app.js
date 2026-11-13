@@ -10,7 +10,6 @@ const els = {
   serverReportPicker: document.querySelector("#serverReportPicker"),
   reportMonthSelect: document.querySelector("#reportMonthSelect"),
   reportMonthMeta: document.querySelector("#reportMonthMeta"),
-  loadReportButton: document.querySelector("#loadReportButton"),
   manualUploadButton: document.querySelector("#manualUploadButton"),
   reportStepTitle: document.querySelector("#reportStepTitle"),
   reportStepCopy: document.querySelector("#reportStepCopy"),
@@ -91,6 +90,8 @@ els.fileInput.addEventListener("change", (event) => {
 els.replaceFile.addEventListener("click", () => {
   if (state.serverReports.length) {
     els.fileStatus.hidden = true;
+    els.reportMonthSelect.value = "";
+    els.reportMonthMeta.textContent = "Se utilizará el archivo más reciente de la carpeta seleccionada.";
     els.serverReportPicker.hidden = false;
     return;
   }
@@ -98,15 +99,13 @@ els.replaceFile.addEventListener("click", () => {
   els.fileInput.click();
 });
 
-els.reportMonthSelect.addEventListener("change", () => {
+els.reportMonthSelect.addEventListener("change", async () => {
   const report = state.serverReports.find((item) => item.id === els.reportMonthSelect.value);
-  els.loadReportButton.disabled = !report;
   els.reportMonthMeta.textContent = report
     ? `Se utilizará ${report.fileName}.`
     : "Se utilizará el archivo más reciente de la carpeta seleccionada.";
+  if (report) await loadServerReport(report.id);
 });
-
-els.loadReportButton.addEventListener("click", () => loadServerReport(els.reportMonthSelect.value));
 
 els.manualUploadButton.addEventListener("click", () => {
   els.serverReportPicker.hidden = true;
@@ -234,11 +233,11 @@ async function loadWorkbook(file) {
   clearError();
   if (!/\.(xlsx|xls)$/i.test(file.name)) {
     showError("Selecciona un archivo de Excel con extensión .xlsx o .xls.");
-    return;
+    return false;
   }
   if (typeof XLSX === "undefined") {
     showError("No se pudo iniciar el lector de Excel. Recarga la página e inténtalo de nuevo.");
-    return;
+    return false;
   }
 
   els.dropZone.querySelector("strong").textContent = "Leyendo archivo…";
@@ -256,9 +255,11 @@ async function loadWorkbook(file) {
     }
     hydrateData(records);
     showLoadedFile(file, records.length);
+    return true;
   } catch (error) {
     console.error(error);
     showError(error.message || "No pude leer este archivo. Verifica que sea un XLSX válido.");
+    return false;
   } finally {
     els.dropZone.querySelector("strong").textContent = "Arrastra tu archivo aquí";
   }
@@ -704,23 +705,24 @@ async function loadServerReport(monthId) {
   const report = state.serverReports.find((item) => item.id === monthId);
   if (!report) return;
   clearError();
-  els.loadReportButton.disabled = true;
-  els.loadReportButton.textContent = "Leyendo reporte…";
+  els.reportMonthSelect.disabled = true;
+  els.reportMonthMeta.textContent = `Abriendo ${report.fileName}…`;
+  let loaded = false;
   try {
     const response = await fetch(`./api/reports/${encodeURIComponent(report.id)}/latest`, { cache: "no-store" });
     if (!response.ok) throw new Error("El servidor no pudo abrir el reporte seleccionado.");
     const bytes = await response.arrayBuffer();
     const fileName = decodeURIComponent(response.headers.get("X-Report-Name") || report.fileName);
-    await loadWorkbook(new File([bytes], fileName, {
+    loaded = await loadWorkbook(new File([bytes], fileName, {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }));
-    els.serverReportPicker.hidden = true;
+    if (loaded) els.serverReportPicker.hidden = true;
   } catch (error) {
     console.error(error);
     showError(error.message || "No pude cargar el reporte del servidor.");
   } finally {
-    els.loadReportButton.disabled = false;
-    els.loadReportButton.textContent = "Abrir reporte";
+    els.reportMonthSelect.disabled = false;
+    if (!loaded) els.reportMonthMeta.textContent = `Se utilizará ${report.fileName}.`;
   }
 }
 

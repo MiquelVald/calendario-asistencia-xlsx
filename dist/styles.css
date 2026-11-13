@@ -265,7 +265,6 @@ h1 {
 }
 .server-report-picker select:focus { outline: 3px solid rgba(49,94,158,.14); border-color: #6f91c4; }
 .server-report-picker p { min-height: 1.35em; margin: 0; color: #748198; font-size: .71rem; line-height: 1.4; }
-.server-report-picker .primary-button { width: 100%; }
 .server-report-picker .text-button { justify-self: center; }
 
 .upload-icon {
