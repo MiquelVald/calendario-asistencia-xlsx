@@ -73,11 +73,12 @@ const state = {
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
 const fullDateFormatter = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const collator = new Intl.Collator("es-MX", { sensitivity: "base" });
+const standardEntryLatestAllowedMinutes = 8 * 60 + 45;
 const mondayToThursdayExitCutoffMinutes = 15 * 60 + 30;
 const fridayExitCutoffMinutes = 14 * 60;
 const specialAttendanceSchedules = new Map([
-  ["Mayra Yarlet Trejo Cervantes", { entryCutoffMinutes: 8 * 60, mondayToThursdayExitCutoffMinutes: 15 * 60 }],
-  ["María Isabel Castañeda Perea", { entryCutoffMinutes: 8 * 60, mondayToThursdayExitCutoffMinutes: 15 * 60 }],
+  ["Mayra Yarlet Trejo Cervantes", { entryLatestAllowedMinutes: 8 * 60 + 15, mondayToThursdayExitCutoffMinutes: 15 * 60 }],
+  ["María Isabel Castañeda Perea", { entryLatestAllowedMinutes: 8 * 60 + 15, mondayToThursdayExitCutoffMinutes: 15 * 60 }],
 ].map(([name, schedule]) => [normalizeText(name), schedule]));
 const templateStorage = {
   database: "calendario-asistencia-local",
@@ -301,9 +302,10 @@ function extractRecords(workbook) {
         exit: timeText(exitCell),
         hasEntry: cellHasValue(entryCell),
         hasExit: cellHasValue(exitCell),
-        entryAlert: attendanceSchedule
-          ? isEntryAfterCutoff(entryCell, attendanceSchedule.entryCutoffMinutes)
-          : classifyFill(entryCell) === "red",
+        entryAlert: isEntryAfterCutoff(
+          entryCell,
+          attendanceSchedule?.entryLatestAllowedMinutes ?? standardEntryLatestAllowedMinutes,
+        ),
         exitAlert: !nonWorkingDay(date) && (attendanceSchedule
           ? isExitBeforeCutoff(exitCell, date, attendanceSchedule)
           : classifyFill(exitCell) === "orange" || isExitBeforeCutoff(exitCell, date)),
@@ -416,7 +418,7 @@ function timeText(cell) {
 
 function isEntryAfterCutoff(cell, cutoffMinutes) {
   const minutes = spreadsheetTimeMinutes(cell);
-  return minutes !== null && minutes > cutoffMinutes;
+  return minutes !== null && Math.floor(minutes) > cutoffMinutes;
 }
 
 function isExitBeforeCutoff(cell, date, attendanceSchedule = null) {

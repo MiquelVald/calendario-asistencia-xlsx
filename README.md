@@ -12,9 +12,9 @@ Sirve la carpeta `dist` con cualquier servidor HTTP estático y abre la URL loca
 
 La aplicación busca una hoja que contenga los encabezados `Nombre`, `Fecha`, `Entrada` y `Salida`. Admite nombres agrupados en celdas combinadas o repetidos por fila.
 
-- Una celda roja en `Entrada` marca una llegada tardía en salmón claro.
+- La hora general de entrada es 08:30 y tiene 15 minutos de tolerancia: hasta las 08:45 se considera puntual y desde las 08:46 se marca una llegada tardía en salmón claro.
 - De lunes a jueves, una salida anterior a las 15:30 marca una salida temprana; los viernes, el límite es antes de las 14:00. También se respeta el indicador naranja que ya venga en la celda de `Salida`.
-- Las personas con horario especial configurado se evalúan directamente por hora, ignorando los colores calculados para el horario general. Su límite de entrada es 08:00 y su salida mínima es 15:00 de lunes a jueves; el viernes conservan la salida mínima general de las 14:00.
+- Las personas con horario especial configurado tienen entrada a las 08:00 con 15 minutos de tolerancia: hasta las 08:15 se considera puntual y desde las 08:16 se marca una llegada tardía. Su salida mínima es 15:00 de lunes a jueves; el viernes conservan la salida mínima general de las 14:00. Estas reglas se evalúan directamente por hora, ignorando los colores calculados para el horario general.
 - Un día laborable sin entrada ni salida se marca en lavanda.
 - Los sábados, domingos y descansos obligatorios federales de México se muestran en gris y no cuentan como inasistencia ni alerta.
 
