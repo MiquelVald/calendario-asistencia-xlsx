@@ -10,6 +10,10 @@ const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 8080);
 const templatePath = process.env.JUSTIFICACIONES_TEMPLATE_PATH || "";
 const reportsRoot = process.env.JUSTIFICACIONES_REPORTS_PATH || "";
+const localVacationsPath = process.platform === "win32"
+  ? String.raw`O:\Miguel Valdez\JustificacionesMiniApp\VacacionesDates.xlsx`
+  : "";
+const vacationsPath = process.env.JUSTIFICACIONES_VACATIONS_PATH || localVacationsPath;
 const monthOrder = new Map([
   ["enero", 1], ["febrero", 2], ["marzo", 3], ["abril", 4], ["mayo", 5], ["junio", 6],
   ["julio", 7], ["agosto", 8], ["septiembre", 9], ["octubre", 10], ["noviembre", 11], ["diciembre", 12],
@@ -101,7 +105,15 @@ const server = createServer(async (request, response) => {
       } catch {
         reportsReady = false;
       }
-      sendJson(response, 200, { ok: true, templateReady, reportsReady });
+      let vacationsReady = false;
+      if (vacationsPath) {
+        try {
+          vacationsReady = (await stat(vacationsPath)).isFile();
+        } catch {
+          vacationsReady = false;
+        }
+      }
+      sendJson(response, 200, { ok: true, templateReady, reportsReady, vacationsReady });
       return;
     }
 
@@ -126,6 +138,21 @@ const server = createServer(async (request, response) => {
         return;
       }
       sendJson(response, 200, { months: await listReports() });
+      return;
+    }
+
+    if (url.pathname === "/api/vacations") {
+      if (!vacationsPath) {
+        sendJson(response, 404, { error: "No hay un reporte de vacaciones configurado." });
+        return;
+      }
+      await sendFile(response, vacationsPath, {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": "inline",
+        "Cache-Control": "no-store, private",
+        "X-Content-Type-Options": "nosniff",
+        "X-Vacations-Name": encodeURIComponent(path.basename(vacationsPath)),
+      });
       return;
     }
 
@@ -170,7 +197,8 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Calendario de asistencia disponible en http://${host}:${port}`);
+  console.log(`Vacaciones e incidencias disponible en http://${host}:${port}`);
   console.log(templatePath ? `Plantilla configurada: ${templatePath}` : "Plantilla del servidor no configurada.");
   console.log(reportsRoot ? `Reportes configurados: ${reportsRoot}` : "Carpeta de reportes no configurada.");
+  console.log(vacationsPath ? `Reporte de vacaciones configurado: ${vacationsPath}` : "Reporte de vacaciones no configurado.");
 });

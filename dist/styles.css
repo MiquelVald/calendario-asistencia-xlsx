@@ -39,7 +39,9 @@ body {
 }
 
 button,
-input { font: inherit; }
+input,
+select,
+textarea { font: inherit; }
 
 button { color: inherit; }
 
@@ -181,6 +183,116 @@ h1 {
 .mini-calendar span { aspect-ratio: 1; border-radius: 7px; background: #f0f3f8; }
 .mini-calendar .salmon { background: #ffd7d0; box-shadow: inset 0 0 0 1px #efaca3; }
 .mini-calendar .orange { background: #ffe0b1; box-shadow: inset 0 0 0 1px #efbd70; }
+
+.workflow-picker {
+  margin-bottom: 22px;
+  padding: 24px 26px;
+  border: 1px solid rgba(218, 225, 237, 0.95);
+  border-radius: 20px;
+  display: grid;
+  grid-template-columns: minmax(180px, .55fr) minmax(0, 1.45fr);
+  align-items: center;
+  gap: 26px;
+  background: rgba(255,255,255,.82);
+  box-shadow: 0 12px 34px rgba(31,54,96,.06);
+}
+.workflow-picker h2 { margin: 0; color: #203a63; font-size: 1.15rem; }
+.workflow-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.workflow-option {
+  min-width: 0;
+  min-height: 82px;
+  border: 1px solid #dce4ef;
+  border-radius: 15px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #344863;
+  background: white;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.workflow-option:hover { transform: translateY(-1px); border-color: #aebfd6; box-shadow: 0 7px 16px rgba(42,63,96,.08); }
+.workflow-option.is-active { border-color: #6f91c4; color: #244d85; background: #edf4ff; box-shadow: inset 0 0 0 1px rgba(49,94,158,.08), 0 8px 18px rgba(49,94,158,.1); }
+.workflow-option > span:last-child { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.workflow-option strong { font-size: .84rem; }
+.workflow-option small { color: #728097; font-size: .67rem; line-height: 1.4; }
+.workflow-icon { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 11px; display: grid; place-items: center; color: #496c9f; background: #eef3fa; }
+.workflow-option.is-active .workflow-icon { color: white; background: #315e9e; }
+.workflow-icon svg { width: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.vacation-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  overflow: hidden;
+  border: 1px solid rgba(218, 225, 237, 0.95);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.vacation-workspace[hidden],
+.workspace-card[hidden] { display: none; }
+.vacation-panel { min-width: 0; padding: 34px; }
+.vacation-panel + .vacation-panel { border-left: 1px solid var(--line); }
+.vacation-report-status { margin-top: 24px; padding: 11px 12px; border: 1px solid #dce4ee; border-radius: 11px; color: #65738a; background: #f8fafc; font-size: .7rem; line-height: 1.4; }
+.vacation-report-status.is-success { border-color: #c9e2d3; color: #34704d; background: #f3faf6; }
+.vacation-report-status.is-warning { border-color: #ead7ad; color: #866522; background: #fffaf0; }
+.vacation-report-status.is-error { border-color: #efc8c2; color: #a0443b; background: #fff5f3; }
+.vacation-report-button { margin-top: 10px; }
+.vacation-panel .field-group { margin-top: 18px; }
+.vacation-panel .field-group > label { display: block; margin-bottom: 7px; color: #33455f; font-size: .72rem; font-weight: 800; }
+.vacation-panel select,
+.vacation-date-grid input {
+  width: 100%;
+  height: 46px;
+  border: 1px solid #cfd9e6;
+  border-radius: 11px;
+  padding: 0 12px;
+  color: #263b5b;
+  background: white;
+  outline: none;
+}
+.vacation-panel select:focus,
+.vacation-date-grid input:focus { border-color: #6f91c4; box-shadow: 0 0 0 4px rgba(81,124,183,.1); }
+.vacation-panel select:disabled,
+.vacation-date-grid input:disabled { color: #929bad; background: #f4f6f9; cursor: not-allowed; }
+.vacation-balance { margin-top: 24px; padding: 6px 17px 14px; border: 1px solid #bfd1eb; border-radius: 15px; background: #edf4ff; }
+.vacation-balance[hidden] { display: none; }
+.vacation-balance-period,
+.vacation-balance-total { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 5px 14px; }
+.vacation-balance-period[hidden],
+.vacation-balance-total[hidden],
+.vacation-balance-note[hidden] { display: none; }
+.vacation-balance-period { padding: 12px 0; }
+.vacation-balance-period + .vacation-balance-period { border-top: 1px solid #d4e1f2; }
+.vacation-balance-period[hidden] + .vacation-balance-period { border-top: 0; }
+.vacation-balance-period > span,
+.vacation-balance-total > span { color: #5f7190; font-size: .75rem; }
+.vacation-balance-period > strong,
+.vacation-balance-total > strong { color: #244f88; font-size: .95rem; text-align: right; }
+.vacation-balance-period > small { grid-column: 1 / -1; color: #687a94; font-size: .68rem; line-height: 1.4; }
+.vacation-balance-total { padding: 12px 0 8px; border-top: 1px solid #b7cae4; }
+.vacation-balance-total > span,
+.vacation-balance-total > strong { color: #183f77; font-weight: 850; }
+.vacation-balance-note { display: block; padding-top: 9px; border-top: 1px solid #d4e1f2; color: #687a94; font-size: .68rem; line-height: 1.45; }
+.vacation-balance.is-empty { border-color: #e1e6ed; background: #f8f9fb; }
+.vacation-balance.is-empty strong { color: #8993a3; }
+.vacation-date-grid { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vacation-date-grid label { color: #33455f; font-size: .68rem; font-weight: 800; }
+.vacation-date-grid input { margin-top: 7px; font-size: .76rem; font-weight: 500; }
+.vacation-policy-note { margin: 12px 0 0; padding: 11px 13px; border-left: 3px solid #d9a441; border-radius: 9px; color: #6d5628; background: #fff8e8; font-size: .875rem; font-weight: 650; line-height: 1.45; }
+.vacation-summary { margin-top: 14px; border: 1px solid #e1e6ee; border-radius: 14px; overflow: hidden; background: #fbfcfe; }
+.vacation-summary > div { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.vacation-summary > div + div { border-top: 1px solid #e7ebf1; }
+.vacation-summary span { color: #6e7a8d; font-size: .66rem; }
+.vacation-summary strong { color: #2b405f; font-size: .76rem; text-align: right; }
+.vacation-notes { margin-top: 14px; }
+.vacation-notes textarea { min-height: 74px; }
+.vacation-generate-button { width: 100%; margin-top: 7px; }
+.vacation-template-meta { margin-top: 9px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.vacation-template-meta p { margin: 0; color: #6f7c90; font-size: .62rem; line-height: 1.4; text-align: center; }
+.vacation-template-meta .text-button { padding: 2px 4px; font-size: .61rem; }
 
 .workspace-card {
   display: grid;
@@ -476,8 +588,11 @@ footer { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 
 @media (max-width: 900px) {
   .intro { grid-template-columns: 1fr; padding-inline: 10px; }
   .intro-art { display: none; }
+  .workflow-picker { grid-template-columns: 1fr; }
   .workspace-card { grid-template-columns: 1fr; }
+  .vacation-workspace { grid-template-columns: 1fr; }
   .step-panel + .step-panel { border-left: 0; border-top: 1px solid var(--line); }
+  .vacation-panel + .vacation-panel { border-left: 0; border-top: 1px solid var(--line); }
   .calendar-layout { grid-template-columns: 1fr; }
   .results-header { flex-direction: column; }
   .summary-chips { justify-content: flex-start; }
@@ -491,7 +606,11 @@ footer { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 
   main { width: min(100% - 24px, 1120px); padding-top: 22px; }
   .intro { padding: 22px 8px 38px; }
   h1 { font-size: 2.55rem; }
+  .workflow-picker { padding: 20px; }
+  .workflow-options { grid-template-columns: 1fr; }
   .step-panel, .results { padding: 23px; }
+  .vacation-panel { padding: 23px; }
+  .vacation-date-grid { grid-template-columns: 1fr; }
   .calendar-card { padding: 15px; }
   .calendar-selection-bar { align-items: flex-start; }
   .selection-toggle small { display: none; }

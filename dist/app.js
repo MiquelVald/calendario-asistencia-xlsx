@@ -1,6 +1,9 @@
 "use strict";
 
 const els = {
+  workflowButtons: [...document.querySelectorAll("[data-workflow]")],
+  vacationFlow: document.querySelector("#vacationFlow"),
+  incidentFlow: document.querySelector("#incidentFlow"),
   fileInput: document.querySelector("#fileInput"),
   dropZone: document.querySelector("#dropZone"),
   fileStatus: document.querySelector("#fileStatus"),
@@ -50,9 +53,34 @@ const els = {
   templateButton: document.querySelector("#templateButton"),
   employeeResolver: document.querySelector("#employeeResolver"),
   employeeSelect: document.querySelector("#employeeSelect"),
+  vacationReportStatus: document.querySelector("#vacationReportStatus"),
+  vacationEmployeeSelect: document.querySelector("#vacationEmployeeSelect"),
+  vacationEmployeeHint: document.querySelector("#vacationEmployeeHint"),
+  vacationReportInput: document.querySelector("#vacationReportInput"),
+  vacationReportButton: document.querySelector("#vacationReportButton"),
+  vacationBalance: document.querySelector("#vacationBalance"),
+  vacationPeriod2025: document.querySelector("#vacationPeriod2025"),
+  vacationPeriod2026: document.querySelector("#vacationPeriod2026"),
+  vacationAvailable2025: document.querySelector("#vacationAvailable2025"),
+  vacationExpiration2025: document.querySelector("#vacationExpiration2025"),
+  vacationAvailable2026: document.querySelector("#vacationAvailable2026"),
+  vacationExpiration2026: document.querySelector("#vacationExpiration2026"),
+  vacationBalanceTotal: document.querySelector("#vacationBalanceTotal"),
+  vacationTotalAvailable: document.querySelector("#vacationTotalAvailable"),
+  vacationBalanceNote: document.querySelector("#vacationBalanceNote"),
+  vacationStart: document.querySelector("#vacationStart"),
+  vacationEnd: document.querySelector("#vacationEnd"),
+  vacationDayCount: document.querySelector("#vacationDayCount"),
+  vacationReturnDate: document.querySelector("#vacationReturnDate"),
+  vacationNotes: document.querySelector("#vacationNotes"),
+  vacationMessage: document.querySelector("#vacationMessage"),
+  vacationGenerateButton: document.querySelector("#vacationGenerateButton"),
+  vacationGenerateNote: document.querySelector("#vacationGenerateNote"),
+  vacationTemplateButton: document.querySelector("#vacationTemplateButton"),
 };
 
 const state = {
+  workflow: "vacations",
   people: [],
   recordsByPerson: new Map(),
   selectedPerson: null,
@@ -68,10 +96,14 @@ const state = {
   selectedIncidentKeys: new Set(),
   selectionMode: false,
   serverReports: [],
+  vacationEmployees: [],
+  selectedVacationEmployee: null,
+  vacationReportFileName: "",
 };
 
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
 const fullDateFormatter = new Intl.DateTimeFormat("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const shortDateFormatter = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
 const collator = new Intl.Collator("es-MX", { sensitivity: "base" });
 const standardEntryLatestAllowedMinutes = 8 * 60 + 45;
 const mondayToThursdayExitCutoffMinutes = 15 * 60 + 30;
@@ -86,6 +118,46 @@ const templateStorage = {
   store: "archivos",
   key: "formato-justificaciones",
 };
+
+els.workflowButtons.forEach((button) => {
+  button.addEventListener("click", () => setWorkflow(button.dataset.workflow));
+});
+
+els.vacationEmployeeSelect.addEventListener("change", () => {
+  state.selectedVacationEmployee = state.vacationEmployees.find((employee) => String(employee.code) === els.vacationEmployeeSelect.value) || null;
+  els.vacationStart.value = "";
+  els.vacationEnd.value = "";
+  els.vacationNotes.value = "";
+  renderVacationRequest();
+});
+
+[els.vacationStart, els.vacationEnd].forEach((input) => {
+  input.addEventListener("change", () => {
+    updateVacationDateLimits();
+    renderVacationRequest();
+  });
+  input.addEventListener("input", () => {
+    updateVacationDateLimits();
+    renderVacationRequest();
+  });
+});
+
+els.vacationReportButton.addEventListener("click", () => {
+  els.vacationReportInput.value = "";
+  els.vacationReportInput.click();
+});
+
+els.vacationReportInput.addEventListener("change", (event) => {
+  const [file] = event.target.files;
+  if (file) loadVacationWorkbook(file);
+});
+
+els.vacationTemplateButton.addEventListener("click", () => {
+  els.templateInput.value = "";
+  els.templateInput.click();
+});
+
+els.vacationGenerateButton.addEventListener("click", generateVacationFile);
 
 els.fileInput.addEventListener("change", (event) => {
   const [file] = event.target.files;
@@ -228,8 +300,363 @@ els.quickGenerateButton.addEventListener("click", () => {
   generateJustificationFile();
 });
 
+setWorkflow("vacations");
+updateVacationDateLimits();
 initializeTemplate();
+initializeVacationReport();
 initializeServerReports();
+
+function setWorkflow(workflow) {
+  if (!['vacations', 'incidents'].includes(workflow)) return;
+  state.workflow = workflow;
+  els.workflowButtons.forEach((button) => {
+    const active = button.dataset.workflow === workflow;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  els.vacationFlow.hidden = workflow !== "vacations";
+  els.incidentFlow.hidden = workflow !== "incidents";
+  els.results.hidden = workflow !== "incidents" || !state.selectedPerson;
+  if (workflow === "vacations") renderVacationRequest();
+}
+
+async function initializeVacationReport() {
+  if (typeof XLSX === "undefined") {
+    setVacationReportMessage("No se pudo iniciar el lector de Excel.", "error");
+    showVacationReportUpload();
+    return;
+  }
+  try {
+    const response = await fetch("./api/vacations", { cache: "no-store" });
+    if (!response.ok) {
+      showVacationReportUpload();
+      return;
+    }
+    const bytes = await response.arrayBuffer();
+    const fileName = decodeURIComponent(response.headers.get("X-Vacations-Name") || "Reporte de vacaciones.xlsx");
+    await loadVacationWorkbook(new File([bytes], fileName, {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }));
+  } catch (error) {
+    console.info("No se encontró el reporte de vacaciones del servidor; se permitirá la carga manual.", error);
+    showVacationReportUpload();
+  }
+}
+
+function showVacationReportUpload() {
+  state.vacationEmployees = [];
+  state.selectedVacationEmployee = null;
+  els.vacationEmployeeSelect.disabled = true;
+  els.vacationReportButton.hidden = false;
+  setVacationReportMessage("El servidor no tiene un reporte de vacaciones configurado.", "warning");
+  els.vacationEmployeeHint.textContent = "Carga el reporte para consultar los saldos.";
+  renderVacationRequest();
+}
+
+async function loadVacationWorkbook(file) {
+  if (!/\.(xlsx|xls)$/i.test(file.name)) {
+    setVacationReportMessage("Selecciona un reporte de Excel con extensión .xlsx o .xls.", "error");
+    return false;
+  }
+  setVacationReportMessage("Leyendo el reporte de vacaciones…");
+  try {
+    const bytes = await file.arrayBuffer();
+    const workbook = XLSX.read(bytes, { type: "array", cellDates: true, cellText: true });
+    const employees = extractVacationEmployees(workbook);
+    if (!employees.length) {
+      throw new Error("No encontré empleados con saldos 2025 y 2026 en el reporte.");
+    }
+    state.vacationEmployees = employees;
+    state.selectedVacationEmployee = null;
+    state.vacationReportFileName = file.name;
+    populateVacationEmployeeSelect();
+    els.vacationEmployeeSelect.disabled = false;
+    els.vacationReportButton.hidden = true;
+    els.vacationEmployeeHint.textContent = `${employees.length} ${employees.length === 1 ? "persona disponible" : "personas disponibles"}.`;
+    setVacationReportMessage(`${file.name} · ${employees.length} empleados`, "success");
+    renderVacationRequest();
+    return true;
+  } catch (error) {
+    console.error(error);
+    state.vacationEmployees = [];
+    state.selectedVacationEmployee = null;
+    els.vacationEmployeeSelect.disabled = true;
+    els.vacationReportButton.hidden = false;
+    setVacationReportMessage(error.message || "No pude leer el reporte de vacaciones.", "error");
+    renderVacationRequest();
+    return false;
+  }
+}
+
+function extractVacationEmployees(workbook) {
+  const employees = [];
+  workbook.SheetNames.forEach((sheetName) => {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet?.["!ref"]) return;
+    const range = XLSX.utils.decode_range(sheet["!ref"]);
+    let headerRow = -1;
+    for (let row = range.s.r; row <= Math.min(range.e.r, range.s.r + 12); row += 1) {
+      const first = normalizeText(cellText(getCell(sheet, row, 0)));
+      const second = normalizeText(cellText(getCell(sheet, row, 1)));
+      if (first.includes("empleado") && second === "nombre") {
+        headerRow = row;
+        break;
+      }
+    }
+    if (headerRow < 0) return;
+    for (let row = headerRow + 1; row <= range.e.r; row += 1) {
+      const code = cellText(getCell(sheet, row, 0));
+      const name = cleanSpaces(cellText(getCell(sheet, row, 1)));
+      if (!code || !name) continue;
+      employees.push({
+        code,
+        name,
+        available2025: vacationDayValue(getCell(sheet, row, 3)),
+        expiration2025: parseSpreadsheetDate(getCell(sheet, row, 4)),
+        available2026: vacationDayValue(getCell(sheet, row, 5)),
+        expiration2026: parseSpreadsheetDate(getCell(sheet, row, 6)),
+      });
+    }
+  });
+  return employees.sort((a, b) => collator.compare(a.name, b.name));
+}
+
+function vacationDayValue(cell) {
+  if (!cell || cell.v === null || cell.v === undefined || cell.v === "") return 0;
+  const value = typeof cell.v === "number" ? cell.v : Number(String(cell.v).replace(",", "."));
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function populateVacationEmployeeSelect() {
+  els.vacationEmployeeSelect.replaceChildren(new Option("Selecciona una persona", ""));
+  state.vacationEmployees.forEach((employee) => {
+    els.vacationEmployeeSelect.add(new Option(`${employee.code} · ${displayName(employee.name)}`, String(employee.code)));
+  });
+}
+
+function vacationBalances(employee = state.selectedVacationEmployee) {
+  const available2025 = employee?.available2025 || 0;
+  const available2026 = employee?.available2026 || 0;
+  return { available2025, available2026, total: available2025 + available2026 };
+}
+
+function workingDatesInRange(start, end) {
+  const dates = [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  while (cursor <= end) {
+    if (!nonWorkingDay(cursor)) dates.push(new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
+function allocateVacationPeriods(employee, workingDates) {
+  const balances = vacationBalances(employee);
+  const periods = [
+    { year: 2025, available: balances.available2025 },
+    { year: 2026, available: balances.available2026 },
+  ];
+  const allocations = [];
+  let dateIndex = 0;
+  let remaining = workingDates.length;
+  periods.forEach((period) => {
+    const days = Math.min(period.available, remaining);
+    if (days <= 0) return;
+    allocations.push({
+      year: period.year,
+      days,
+      start: workingDates[dateIndex],
+      end: workingDates[dateIndex + days - 1],
+    });
+    dateIndex += days;
+    remaining -= days;
+  });
+  return allocations;
+}
+
+function vacationRequestDetails() {
+  const employee = state.selectedVacationEmployee;
+  const balances = vacationBalances(employee);
+  const start = parseDateInput(els.vacationStart.value);
+  const end = parseDateInput(els.vacationEnd.value);
+  const details = { employee, balances, start, end, days: 0, returnDate: null, allocations: [], error: "" };
+  if (!employee || balances.total <= 0 || !start || !end) return details;
+  const today = todayDateOnly();
+  if (start < today || end < today) {
+    details.error = "No puedes seleccionar fechas anteriores a hoy.";
+    return details;
+  }
+  if (end < start) {
+    details.error = "La fecha de término debe ser igual o posterior al inicio.";
+    return details;
+  }
+  if (nonWorkingDay(start) || nonWorkingDay(end)) {
+    details.error = "El inicio y el término deben ser días laborables.";
+    return details;
+  }
+  const workingDates = workingDatesInRange(start, end);
+  details.days = workingDates.length;
+  details.returnDate = nextWorkingDay(end);
+  if (!details.days) {
+    details.error = "El rango no contiene días laborables.";
+    details.returnDate = null;
+    return details;
+  }
+  if (details.days > balances.total) {
+    details.error = balances.available2025 > 0
+      ? `El saldo total disponible es de ${formatVacationDays(balances.total)}: ${formatVacationDays(balances.available2025)} de 2025 y ${formatVacationDays(balances.available2026)} de 2026.`
+      : `El saldo disponible del periodo 2026 es de ${formatVacationDays(balances.available2026)}.`;
+    return details;
+  }
+  details.allocations = allocateVacationPeriods(employee, workingDates);
+  return details;
+}
+
+function renderVacationRequest() {
+  updateVacationDateLimits();
+  const employee = state.selectedVacationEmployee;
+  const balances = vacationBalances(employee);
+  const details = vacationRequestDetails();
+  const hasBalance = Boolean(employee && balances.total > 0);
+  const has2025Balance = balances.available2025 > 0;
+  els.vacationStart.disabled = !hasBalance;
+  els.vacationEnd.disabled = !hasBalance;
+  els.vacationBalance.hidden = !employee;
+  els.vacationBalance.classList.toggle("is-empty", !employee);
+  els.vacationPeriod2025.hidden = Boolean(employee && !has2025Balance);
+  els.vacationPeriod2026.hidden = false;
+  els.vacationBalanceTotal.hidden = Boolean(employee && !has2025Balance);
+  els.vacationBalanceNote.hidden = Boolean(employee && !has2025Balance);
+
+  if (employee) {
+    els.vacationAvailable2025.textContent = formatVacationDays(balances.available2025);
+    els.vacationAvailable2026.textContent = formatVacationDays(balances.available2026);
+    els.vacationTotalAvailable.textContent = formatVacationDays(balances.total);
+    els.vacationExpiration2025.textContent = balanceExpirationText(balances.available2025, employee.expiration2025);
+    els.vacationExpiration2026.textContent = balanceExpirationText(balances.available2026, employee.expiration2026);
+    els.vacationBalanceNote.textContent = balances.total > 0
+      ? "Los días se aplican primero al saldo de 2025 y después al de 2026."
+      : "Esta persona no tiene vacaciones disponibles de 2025 ni 2026.";
+  } else {
+    els.vacationAvailable2025.textContent = "—";
+    els.vacationAvailable2026.textContent = "—";
+    els.vacationTotalAvailable.textContent = "—";
+    els.vacationExpiration2025.textContent = "Selecciona una persona para consultar su saldo.";
+    els.vacationExpiration2026.textContent = "Selecciona una persona para consultar su saldo.";
+    els.vacationBalanceNote.textContent = "Los días se aplican primero al saldo más antiguo.";
+  }
+
+  els.vacationDayCount.textContent = details.days ? formatVacationDays(details.days) : "—";
+  els.vacationReturnDate.textContent = details.returnDate ? capitalize(fullDateFormatter.format(details.returnDate)) : "—";
+
+  const templateEmployee = employee ? findTemplateEmployeeByCode(employee.code) : null;
+  const ready = Boolean(employee && hasBalance && details.start && details.end && details.days && details.returnDate && details.allocations.length && !details.error && state.templateBytes && templateEmployee);
+  els.vacationGenerateButton.disabled = !ready;
+  els.vacationTemplateButton.textContent = state.templateBytes ? "Cambiar formato" : "Configurar formato";
+
+  if (!employee) {
+    els.vacationGenerateButton.textContent = "Selecciona una persona";
+    els.vacationGenerateNote.textContent = state.templateBytes ? "El formato institucional está listo." : "Se requiere el formato institucional para generar el archivo.";
+    setVacationMessage("");
+  } else if (!hasBalance) {
+    els.vacationGenerateButton.textContent = "Sin vacaciones disponibles";
+    els.vacationGenerateNote.textContent = has2025Balance
+      ? "No hay saldo disponible en los periodos 2025 o 2026."
+      : "No hay saldo disponible en el periodo 2026.";
+    setVacationMessage("");
+  } else if (!state.templateBytes) {
+    els.vacationGenerateButton.textContent = "Configura el formato";
+    els.vacationGenerateNote.textContent = "Carga el formato institucional una sola vez en este navegador.";
+    setVacationMessage("El saldo está listo; falta configurar el formato institucional.");
+  } else if (!templateEmployee) {
+    els.vacationGenerateButton.textContent = "Empleado no encontrado";
+    els.vacationGenerateNote.textContent = "El número de empleado no aparece en la hoja EMPLEADOS del formato.";
+    setVacationMessage(`No encontré el número ${employee.code} en el formato institucional.`, "error");
+  } else if (!details.start || !details.end) {
+    els.vacationGenerateButton.textContent = "Selecciona las fechas";
+    els.vacationGenerateNote.textContent = has2025Balance
+      ? `Puedes solicitar hasta ${formatVacationDays(balances.total)} entre los periodos 2025 y 2026.`
+      : `Puedes solicitar hasta ${formatVacationDays(balances.available2026)} del periodo 2026.`;
+    setVacationMessage("");
+  } else if (details.error) {
+    els.vacationGenerateButton.textContent = "Revisa las fechas";
+    els.vacationGenerateNote.textContent = has2025Balance
+      ? `Saldo total: ${formatVacationDays(balances.total)}.`
+      : `Saldo 2026: ${formatVacationDays(balances.available2026)}.`;
+    setVacationMessage(details.error, "error");
+  } else {
+    els.vacationGenerateButton.textContent = `Generar solicitud · ${formatVacationDays(details.days)}`;
+    els.vacationGenerateNote.textContent = `Se aplicarán ${allocationSummary(details.allocations)}. Regreso: ${shortDateFormatter.format(details.returnDate)}.`;
+    setVacationMessage("");
+  }
+}
+
+function balanceExpirationText(available, expiration) {
+  if (available <= 0) return "Sin días disponibles en este periodo.";
+  return expiration ? `Vence el ${shortDateFormatter.format(expiration)}.` : "Sin fecha de vencimiento registrada.";
+}
+
+function allocationSummary(allocations) {
+  return allocations.map((allocation) => `${formatVacationDays(allocation.days)} a ${allocation.year}`).join(" y ");
+}
+
+function setVacationReportMessage(message, type = "") {
+  els.vacationReportStatus.textContent = message;
+  els.vacationReportStatus.className = `vacation-report-status${type ? ` is-${type}` : ""}`;
+}
+
+function setVacationMessage(message, type = "") {
+  els.vacationMessage.textContent = message;
+  els.vacationMessage.className = `quick-message${type ? ` is-${type}` : ""}`;
+}
+
+function findTemplateEmployeeByCode(code) {
+  const normalized = String(code ?? "").trim().replace(/\.0+$/, "");
+  return state.employees.find((employee) => String(employee.code).trim().replace(/\.0+$/, "") === normalized) || null;
+}
+
+function parseDateInput(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+  return match ? safeDate(Number(match[1]), Number(match[2]), Number(match[3])) : null;
+}
+
+function todayDateOnly() {
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
+function updateVacationDateLimits() {
+  const todayKey = toDateKey(todayDateOnly());
+  els.vacationStart.min = todayKey;
+  els.vacationEnd.min = els.vacationStart.value && els.vacationStart.value > todayKey
+    ? els.vacationStart.value
+    : todayKey;
+}
+
+function countWorkingDays(start, end) {
+  let days = 0;
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  while (cursor <= end) {
+    if (!nonWorkingDay(cursor)) days += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+function nextWorkingDay(date) {
+  const candidate = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+  while (nonWorkingDay(candidate)) candidate.setDate(candidate.getDate() + 1);
+  return candidate;
+}
+
+function formatVacationDays(value) {
+  const formatted = Number.isInteger(value) ? String(value) : value.toLocaleString("es-MX", { maximumFractionDigits: 2 });
+  return `${formatted} ${value === 1 ? "día" : "días"}`;
+}
+
+function capitalize(value) {
+  return value ? value.charAt(0).toLocaleUpperCase("es-MX") + value.slice(1) : value;
+}
 
 async function loadWorkbook(file) {
   clearError();
@@ -345,7 +772,7 @@ function parseSpreadsheetDate(cell) {
   if (!cell || cell.v === null || cell.v === undefined || cell.v === "") return null;
   const value = cell.v;
   if (value instanceof Date && !Number.isNaN(value.valueOf())) {
-    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    return new Date(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
   }
   if (typeof value === "number") {
     const parsed = XLSX.SSF.parse_date_code(value);
@@ -395,7 +822,10 @@ function nthWeekdayOfMonth(year, month, weekday, occurrence) {
 }
 
 function nonWorkingDay(date) {
-  const holiday = mexicoMandatoryHoliday(date);
+  const institutionalHoliday = date.getMonth() === 11 && date.getDate() === 24
+    ? "Día inhábil institucional"
+    : null;
+  const holiday = institutionalHoliday || mexicoMandatoryHoliday(date);
   if (holiday) return { label: holiday, type: "holiday" };
   if (date.getDay() === 6) return { label: "Sábado", type: "weekend" };
   if (date.getDay() === 0) return { label: "Domingo", type: "weekend" };
@@ -644,6 +1074,7 @@ async function loadTemplateWorkbook(file) {
     els.templateButton.textContent = "Cambiar formato";
     els.templateButton.hidden = !state.templateBytes;
     updateGeneratorAvailability();
+    renderVacationRequest();
   }
 }
 
@@ -663,6 +1094,7 @@ function applyTemplateWorkbook(bytes, fileName) {
   renderEmployeeMatch(Boolean(state.selectedEmployee));
   els.templateButton.hidden = false;
   updateGeneratorAvailability();
+  renderVacationRequest();
   return employees;
 }
 
@@ -921,6 +1353,49 @@ function setGeneratorMessage(message, type = "") {
   els.quickMessage.className = `quick-message${type ? ` is-${type}` : ""}`;
 }
 
+async function generateVacationFile() {
+  const request = vacationRequestDetails();
+  const employee = request.employee ? findTemplateEmployeeByCode(request.employee.code) : null;
+  if (!state.templateBytes || !employee || !request.start || !request.end || !request.days || !request.allocations.length || request.error) {
+    setVacationMessage(request.error || "Selecciona una persona, fechas válidas y un formato institucional.", "error");
+    return;
+  }
+  if (typeof JSZip === "undefined") {
+    setVacationMessage("No se pudo iniciar el generador de archivos. Recarga la página.", "error");
+    return;
+  }
+
+  els.vacationGenerateButton.disabled = true;
+  els.vacationGenerateButton.textContent = "Generando…";
+  setVacationMessage("Preparando la solicitud de vacaciones…");
+  let generatedFileName = "";
+  try {
+    const zip = await JSZip.loadAsync(state.templateBytes);
+    const sheetPath = await worksheetPath(zip, "FORMATO");
+    const sheetFile = zip.file(sheetPath);
+    if (!sheetFile) throw new Error("No encontré la hoja FORMATO dentro del archivo.");
+    const sheetDocument = parseXml(await sheetFile.async("string"), "la hoja FORMATO");
+    fillVacationSheet(sheetDocument, employee, request, els.vacationNotes.value);
+    zip.file(sheetPath, new XMLSerializer().serializeToString(sheetDocument));
+    await enableFullCalculation(zip);
+
+    const blob = await zip.generateAsync({
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    });
+    generatedFileName = `Vacaciones_${safeFileName(request.employee.name)}_${toDateKey(request.start)}_${toDateKey(request.end)}.xlsx`;
+    downloadBlob(blob, generatedFileName);
+  } catch (error) {
+    console.error(error);
+    setVacationMessage(error.message || "No pude generar la solicitud de vacaciones.", "error");
+  } finally {
+    renderVacationRequest();
+    if (generatedFileName) setVacationMessage(`Archivo generado: ${generatedFileName}`, "success");
+  }
+}
+
 async function generateJustificationFile() {
   const incidents = selectedIncidents();
   if (!state.templateBytes || !state.selectedEmployee || !incidents.length) {
@@ -967,6 +1442,30 @@ async function generateJustificationFile() {
 function fillJustificationSheet(document, employee, incidents, comments) {
   const reportDate = latestDate(state.selectedPerson.records);
   const formatDate = lastWorkingDayOfMonth(reportDate);
+  fillEmployeeFields(document, employee, formatDate);
+  clearVacationRows(document);
+  clearIncidentRows(document);
+  incidents.slice(0, 10).forEach((incident, index) => {
+    const row = incidentRows[index];
+    const entryTime = timeFraction(incident.entry);
+    const exitTime = timeFraction(incident.exit);
+    const { includeEntry, includeExit } = incidentExportSides(incident);
+    if (includeEntry && entryTime !== null) {
+      setNumericCell(document, `C${row}`, excelDateSerial(incident.date));
+      setNumericCell(document, `D${row}`, entryTime);
+    }
+    if (includeExit) {
+      setNumericCell(document, `E${row}`, excelDateSerial(incident.date));
+      if (exitTime !== null) setNumericCell(document, `F${row}`, exitTime);
+    }
+  });
+  setInlineTextCell(document, "A49", normalizeNotes(comments));
+}
+
+const incidentRows = [22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
+const vacationRows = [42, 43, 44, 45, 46];
+
+function fillEmployeeFields(document, employee, formatDate) {
   setNumericCell(document, "A6", Number(employee.code));
   setNumericCell(document, "H2", excelDateSerial(formatDate));
   setFormulaCache(document, "B6", employee.name);
@@ -976,27 +1475,38 @@ function fillJustificationSheet(document, employee, incidents, comments) {
   setFormulaCache(document, "C54", employee.manager);
   setFormulaCache(document, "G54", employee.departmentHead);
   setFormulaCache(document, "A58", employee.subdirector);
+}
 
-  const rows = [22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
-  rows.forEach((row) => ["C", "D", "E", "F"].forEach((column) => clearCell(document, `${column}${row}`)));
-  incidents.slice(0, 10).forEach((incident, index) => {
+function clearIncidentRows(document) {
+  incidentRows.forEach((row) => ["C", "D", "E", "F"].forEach((column) => clearCell(document, `${column}${row}`)));
+}
+
+function clearVacationRows(document) {
+  vacationRows.forEach((row) => ["C", "E", "G", "H"].forEach((column) => clearCell(document, `${column}${row}`)));
+}
+
+function fillVacationSheet(document, employee, request, comments) {
+  fillEmployeeFields(document, employee, new Date());
+  clearIncidentRows(document);
+  clearVacationRows(document);
+  const rows = [43, 44];
+  request.allocations.forEach((allocation, index) => {
     const row = rows[index];
-    const entryTime = timeFraction(incident.entry);
-    const exitTime = timeFraction(incident.exit);
-    if (incident.hasNoCheck) {
-      setNumericCell(document, `C${row}`, excelDateSerial(incident.date));
-      setNumericCell(document, `E${row}`, excelDateSerial(incident.date));
-    }
-    if (entryTime !== null) {
-      setNumericCell(document, `C${row}`, excelDateSerial(incident.date));
-      setNumericCell(document, `D${row}`, entryTime);
-    }
-    if (exitTime !== null) {
-      setNumericCell(document, `E${row}`, excelDateSerial(incident.date));
-      setNumericCell(document, `F${row}`, exitTime);
-    }
+    setNumericCell(document, `C${row}`, excelDateSerial(allocation.start));
+    setNumericCell(document, `E${row}`, excelDateSerial(allocation.end));
+    setNumericCell(document, `G${row}`, allocation.year);
+    setNumericCell(document, `H${row}`, allocation.days);
   });
-  setInlineTextCell(document, "A49", normalizeNotes(comments));
+  const automaticComment = `${request.allocations.map((allocation) => `${allocation.days} ${allocation.days === 1 ? "Día" : "Días"} de vacaciones correspondientes al periodo ${allocation.year}`).join(" y ")}.`;
+  const additionalComment = normalizeNotes(comments);
+  setInlineTextCell(document, "A49", additionalComment ? `${automaticComment}\n${additionalComment}` : automaticComment);
+}
+
+function incidentExportSides(incident) {
+  return {
+    includeEntry: Boolean(incident.entryAlert),
+    includeExit: Boolean(incident.exitAlert || incident.hasNoCheck),
+  };
 }
 
 function normalizeNotes(value) {

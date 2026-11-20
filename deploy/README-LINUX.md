@@ -38,6 +38,8 @@ Agrega a `/etc/fstab`:
 
 Después ejecuta `sudo mount -a` y comprueba que la plantilla exista en `/mnt/documentos/2026 Formatos/Septiembre/2026 FormatodeVacacionesyPermisosOK.xlsx`.
 
+Configura también `JUSTIFICACIONES_VACATIONS_PATH` con la ruta al reporte vigente de saldos de vacaciones. La aplicación lo expondrá al navegador mediante `/api/vacations`; el archivo no se copia al repositorio.
+
 ## 3. Aplicación
 
 ```bash
@@ -50,7 +52,7 @@ sudo systemctl enable --now justificaciones
 curl http://127.0.0.1:8080/api/health
 ```
 
-La respuesta debe incluir `"templateReady":true` y `"reportsReady":true`. El servidor mostrará las carpetas mensuales ubicadas en `/mnt/documentos/2026 Formatos/2026 Reporte Lista de Asistencia` y elegirá el archivo XLSX con la fecha más reciente en su nombre.
+La respuesta debe incluir `"templateReady":true`, `"vacationsReady":true` y `"reportsReady":true`. El servidor cargará el reporte de vacaciones configurado, mostrará las carpetas mensuales ubicadas en `/mnt/documentos/2026 Formatos/2026 Reporte Lista de Asistencia` y elegirá el archivo XLSX con la fecha más reciente en su nombre.
 
 ## 4. Nginx
 

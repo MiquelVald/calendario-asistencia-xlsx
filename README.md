@@ -1,12 +1,26 @@
-# Calendario de asistencia
+# Vacaciones e incidencias
 
-Aplicación web estática que lee un archivo XLSX en el navegador, permite buscar una persona y muestra sus fechas en un calendario.
+Aplicación web que permite elegir entre solicitar vacaciones y elaborar un formato de incidencias.
+
+El flujo de vacaciones lee un reporte XLSX con el número y nombre del empleado en las columnas A y B, el saldo disponible de 2025 y su vencimiento en D/E, y el saldo de 2026 y su vencimiento en F/G. No muestra el saldo vencido de la columna C. Presenta ambos saldos y los acumula: consume primero 2025 y continúa con 2026 cuando la solicitud lo requiere. La persona selecciona inicio y término, la aplicación cuenta los días laborables, muestra la fecha de regreso y genera una fila del formato por cada periodo utilizado.
+
+El flujo de incidencias lee un archivo XLSX en el navegador, permite buscar una persona y muestra sus fechas en un calendario.
 
 También puede cargar una sola vez el formato institucional de vacaciones y permisos, relacionar a la persona con la hoja `EMPLEADOS` y descargar desde el calendario una copia con número de empleado, datos del puesto, firmas, notas y los días seleccionados para justificar. El calendario ofrece un modo con casillas para elegir llegadas tardías, salidas tempranas y días sin entrada ni salida. La plantilla se conserva en IndexedDB únicamente para ese navegador y dispositivo; no se incluye en el repositorio ni se envía a un servidor.
 
 ## Uso local
 
-Sirve la carpeta `dist` con cualquier servidor HTTP estático y abre la URL local en el navegador. El archivo XLSX no se incluye en el proyecto y no se envía a un servidor.
+Ejecuta `npm start` y abre `http://127.0.0.1:8080`. Los archivos XLSX no se incluyen en el proyecto.
+
+El servidor admite estas variables:
+
+- `JUSTIFICACIONES_TEMPLATE_PATH`: formato institucional con las hojas `FORMATO` y `EMPLEADOS`.
+- `JUSTIFICACIONES_VACATIONS_PATH`: reporte de saldos de vacaciones.
+
+En Windows, si `JUSTIFICACIONES_VACATIONS_PATH` no está definida, el servidor local usa `O:\Miguel Valdez\JustificacionesMiniApp\VacacionesDates.xlsx`. En Linux o en el servidor definitivo, configura la variable con la ruta montada correspondiente.
+- `JUSTIFICACIONES_REPORTS_PATH`: carpeta con los reportes mensuales de asistencia.
+
+Si el reporte de vacaciones o la plantilla no están configurados en el servidor, la interfaz permite cargarlos manualmente y los procesa en el navegador.
 
 ## Formato esperado
 
@@ -17,15 +31,18 @@ La aplicación busca una hoja que contenga los encabezados `Nombre`, `Fecha`, `E
 - Las personas con horario especial configurado tienen entrada a las 08:00 con 15 minutos de tolerancia: hasta las 08:15 se considera puntual y desde las 08:16 se marca una llegada tardía. Su salida mínima es 15:00 de lunes a jueves; el viernes conservan la salida mínima general de las 14:00. Estas reglas se evalúan directamente por hora, ignorando los colores calculados para el horario general.
 - Un día laborable sin entrada ni salida se marca en lavanda.
 - Los sábados, domingos y descansos obligatorios federales de México se muestran en gris y no cuentan como inasistencia ni alerta.
+- Para vacaciones, el 24 de diciembre también se considera día inhábil institucional y no descuenta saldo.
 
 Los descansos obligatorios siguen el artículo 74 de la Ley Federal del Trabajo. Las jornadas electorales no se calculan automáticamente porque dependen de la elección federal o local aplicable.
 
-El proyecto incluye un flujo de GitHub Pages que publica el contenido de `dist` al enviar cambios a la rama `main`. El lector XLSX se carga desde la CDN oficial de SheetJS.
+El proyecto incluye un flujo de GitHub Pages que publica el contenido de `dist` al enviar cambios a la rama `main`. El lector XLSX se sirve localmente desde `dist/vendor`.
 
 La generación preserva el libro base y modifica únicamente las celdas necesarias mediante OOXML. Usa JSZip para conservar imágenes, estilos, fórmulas, hojas ocultas y configuración de impresión.
+
+En la tabla de checadas fuera de horario, una llegada tardía llena únicamente `INICIO`, una salida temprana o un día sin checadas llena únicamente `TÉRMINO`, y ambos campos se llenan sólo cuando el mismo día tiene llegada tardía y salida temprana.
 
 ## Servidor privado Linux
 
 El proyecto incluye un servidor Node sin dependencias que sirve la aplicación y puede cargar automáticamente la plantilla desde una ruta local del servidor. La guía para montar `//10.218.108.49/Documentos` con CIFS, ejecutar la aplicación con systemd y publicarla mediante Nginx está en `deploy/README-LINUX.md`.
 
-En el servidor privado, la aplicación también puede listar las carpetas mensuales de asistencia y cargar automáticamente el archivo `dd_mm_aaaa.xlsx` más reciente de cada una. La carga manual permanece disponible como respaldo.
+En el servidor privado, la aplicación puede cargar automáticamente el reporte de vacaciones configurado, listar las carpetas mensuales de asistencia y abrir el archivo `dd_mm_aaaa.xlsx` más reciente de cada una. La carga manual permanece disponible como respaldo.

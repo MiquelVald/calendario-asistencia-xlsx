@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Justifica incidencias de asistencia y genera el reporte del mes seleccionado."
+      content="Solicita vacaciones o genera un formato de incidencias de asistencia."
     />
-    <title>Justificación de incidencias</title>
+    <title>Vacaciones e incidencias</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -21,8 +21,8 @@
             </svg>
           </span>
           <span>
-            <strong>Asistencia</strong>
-            <small>Consulta por persona</small>
+            <strong>Vacaciones e incidencias</strong>
+            <small>Gestión por persona</small>
           </span>
         </a>
         <span class="privacy-pill">
@@ -34,10 +34,10 @@
       <main>
         <section class="intro" aria-labelledby="page-title">
           <div>
-            <p class="eyebrow">Reporte de asistencia</p>
-            <h1 id="page-title">Justifica tus incidencias mediante esta plataforma.</h1>
+            <p class="eyebrow">Gestión de personal</p>
+            <h1 id="page-title">Solicita vacaciones o justifica incidencias.</h1>
             <p class="intro-copy">
-              Selecciona el mes del que desees generar el reporte de incidencias.
+              Elige el trámite que necesitas y genera el formato institucional con tus datos.
             </p>
           </div>
           <div class="intro-art" aria-hidden="true">
@@ -49,7 +49,109 @@
           </div>
         </section>
 
-        <section class="workspace-card" aria-label="Cargar y consultar archivo">
+        <section class="workflow-picker" aria-labelledby="workflow-title">
+          <div>
+            <p class="eyebrow">Tipo de trámite</p>
+            <h2 id="workflow-title">¿Qué deseas hacer?</h2>
+          </div>
+          <div class="workflow-options" role="group" aria-label="Selecciona el tipo de trámite">
+            <button class="workflow-option" type="button" data-workflow="incidents" aria-pressed="false">
+              <span class="workflow-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01M10.3 4.8 3.5 17a2 2 0 0 0 1.8 3h13.4a2 2 0 0 0 1.8-3L13.7 4.8a2 2 0 0 0-3.4 0Z" /></svg>
+              </span>
+              <span><strong>Elaborar incidencias</strong><small>Revisa checadas y genera la justificación.</small></span>
+            </button>
+            <button class="workflow-option is-active" type="button" data-workflow="vacations" aria-pressed="true">
+              <span class="workflow-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4.5 9.5h15M6.5 5h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /><path d="m8.5 14 2 2 4.5-4.5" /></svg>
+              </span>
+              <span><strong>Pedir vacaciones</strong><small>Consulta tu saldo y selecciona las fechas.</small></span>
+            </button>
+          </div>
+        </section>
+
+        <section id="vacationFlow" class="vacation-workspace" aria-label="Solicitud de vacaciones">
+          <article class="vacation-panel">
+            <div class="step-heading">
+              <span class="step-number">1</span>
+              <div>
+                <h2>Selecciona una persona</h2>
+                <p>El saldo se consulta en el reporte de vacaciones.</p>
+              </div>
+            </div>
+            <div id="vacationReportStatus" class="vacation-report-status" aria-live="polite">
+              Cargando el reporte de vacaciones…
+            </div>
+            <div class="field-group">
+              <label for="vacationEmployeeSelect">Número y nombre del empleado</label>
+              <select id="vacationEmployeeSelect" disabled>
+                <option value="">Selecciona una persona</option>
+              </select>
+              <p id="vacationEmployeeHint" class="field-hint">Espera mientras se carga el reporte.</p>
+            </div>
+            <input id="vacationReportInput" class="visually-hidden" type="file" accept=".xlsx,.xls" />
+            <button id="vacationReportButton" class="text-button vacation-report-button" type="button" hidden>
+              Cargar reporte manualmente
+            </button>
+          </article>
+
+          <article class="vacation-panel vacation-request-panel">
+            <div class="step-heading">
+              <span class="step-number">2</span>
+              <div>
+                <h2>Elige tus fechas</h2>
+                <p>No se cuentan fines de semana ni días inhábiles; el 24 y 25 de diciembre se excluyen.</p>
+              </div>
+            </div>
+
+            <div id="vacationBalance" class="vacation-balance is-empty" hidden>
+              <div id="vacationPeriod2025" class="vacation-balance-period">
+                <span>Periodo 2025</span>
+                <strong id="vacationAvailable2025">—</strong>
+                <small id="vacationExpiration2025">Selecciona una persona para consultar su saldo.</small>
+              </div>
+              <div id="vacationPeriod2026" class="vacation-balance-period">
+                <span>Periodo 2026</span>
+                <strong id="vacationAvailable2026">—</strong>
+                <small id="vacationExpiration2026">Selecciona una persona para consultar su saldo.</small>
+              </div>
+              <div id="vacationBalanceTotal" class="vacation-balance-total">
+                <span>Total disponible</span>
+                <strong id="vacationTotalAvailable">—</strong>
+              </div>
+              <small id="vacationBalanceNote" class="vacation-balance-note">Los días se aplican primero al saldo más antiguo.</small>
+            </div>
+
+            <div class="vacation-date-grid">
+              <label>Inicio<input id="vacationStart" type="date" disabled /></label>
+              <label>Término<input id="vacationEnd" type="date" disabled /></label>
+            </div>
+
+            <p class="vacation-policy-note">Recuerda pedir tus días de vacaciones con al menos 5 días de anticipación.</p>
+
+            <div class="vacation-summary" aria-live="polite">
+              <div><span>Días de vacaciones</span><strong id="vacationDayCount">—</strong></div>
+              <div><span>Regreso al trabajo</span><strong id="vacationReturnDate">—</strong></div>
+            </div>
+
+            <div class="notes-field vacation-notes">
+              <label for="vacationNotes">Comentario adicional (opcional)</label>
+              <textarea id="vacationNotes" rows="3" placeholder="Agrega una nota sólo si es necesaria."></textarea>
+              <small>El formato incluirá automáticamente los días y el periodo correspondiente.</small>
+            </div>
+
+            <div id="vacationMessage" class="quick-message" role="status" aria-live="polite"></div>
+            <button id="vacationGenerateButton" class="primary-button vacation-generate-button" type="button" disabled>
+              Selecciona una persona
+            </button>
+            <div class="vacation-template-meta">
+              <p id="vacationGenerateNote">Se requiere el formato institucional para generar el archivo.</p>
+              <button id="vacationTemplateButton" class="text-button" type="button">Configurar formato</button>
+            </div>
+          </article>
+        </section>
+
+        <section id="incidentFlow" class="workspace-card" aria-label="Cargar y consultar archivo" hidden>
           <div class="step-panel upload-panel">
             <div class="step-heading">
               <span class="step-number">1</span>
@@ -224,11 +326,11 @@
         </section>
       </main>
 
-      <footer>Calendario de asistencia · Los datos permanecen en tu dispositivo</footer>
+      <footer>Vacaciones e incidencias · Los datos permanecen en tu dispositivo</footer>
     </div>
 
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="./vendor/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js"></script>
-    <script src="./app.js?v=20261103-5"></script>
+    <script src="./app.js?v=20261120-5"></script>
   </body>
 </html>
