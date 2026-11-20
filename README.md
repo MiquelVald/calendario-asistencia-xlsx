@@ -17,7 +17,7 @@ El servidor admite estas variables:
 - `JUSTIFICACIONES_TEMPLATE_PATH`: formato institucional con las hojas `FORMATO` y `EMPLEADOS`.
 - `JUSTIFICACIONES_VACATIONS_PATH`: reporte de saldos de vacaciones.
 
-En Windows, si `JUSTIFICACIONES_VACATIONS_PATH` no está definida, el servidor local usa `O:\Miguel Valdez\JustificacionesMiniApp\VacacionesDates.xlsx`. En Linux o en el servidor definitivo, configura la variable con la ruta montada correspondiente.
+En Windows, si las variables no están definidas, el servidor local usa `O:\Miguel Valdez\JustificacionesMiniApp\VacacionesDates.xlsx` para vacaciones y `O:\2026 Formatos\2026 Reporte Lista de Asistencia` para los reportes mensuales. En Linux o en el servidor definitivo, configura las variables con las rutas montadas correspondientes.
 - `JUSTIFICACIONES_REPORTS_PATH`: carpeta con los reportes mensuales de asistencia.
 
 Si el reporte de vacaciones o la plantilla no están configurados en el servidor, la interfaz permite cargarlos manualmente y los procesa en el navegador.

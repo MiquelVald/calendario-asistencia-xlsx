@@ -9,7 +9,10 @@ const publicRoot = path.join(appRoot, "dist");
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 8080);
 const templatePath = process.env.JUSTIFICACIONES_TEMPLATE_PATH || "";
-const reportsRoot = process.env.JUSTIFICACIONES_REPORTS_PATH || "";
+const localReportsRoot = process.platform === "win32"
+  ? String.raw`O:\2026 Formatos\2026 Reporte Lista de Asistencia`
+  : "";
+const reportsRoot = process.env.JUSTIFICACIONES_REPORTS_PATH || localReportsRoot;
 const localVacationsPath = process.platform === "win32"
   ? String.raw`O:\Miguel Valdez\JustificacionesMiniApp\VacacionesDates.xlsx`
   : "";
