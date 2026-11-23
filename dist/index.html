@@ -8,7 +8,7 @@
       content="Solicita vacaciones o genera un formato de incidencias de asistencia."
     />
     <title>Vacaciones e incidencias</title>
-    <link rel="stylesheet" href="./styles.css?v=20261123-1" />
+    <link rel="stylesheet" href="./styles.css?v=20261123-2" />
   </head>
   <body>
     <div class="page-shell">
@@ -127,8 +127,20 @@
                 <strong>Rango 1</strong>
               </div>
               <div class="vacation-date-grid">
-                <label>Inicio<input id="vacationStart" type="date" disabled /></label>
-                <label>Término<input id="vacationEnd" type="date" disabled /></label>
+                <label>Inicio
+                  <span class="vacation-date-control">
+                    <span data-date-display-for="vacationStart" aria-hidden="true">DD/MM/AAAA</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9.5h15M6.5 5h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>
+                    <input id="vacationStart" type="date" aria-label="Inicio del rango 1, formato día, mes y año" disabled />
+                  </span>
+                </label>
+                <label>Término
+                  <span class="vacation-date-control">
+                    <span data-date-display-for="vacationEnd" aria-hidden="true">DD/MM/AAAA</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9.5h15M6.5 5h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>
+                    <input id="vacationEnd" type="date" aria-label="Término del rango 1, formato día, mes y año" disabled />
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -142,8 +154,20 @@
                 <button id="vacationRemoveRangeButton" class="text-button" type="button">Quitar rango</button>
               </div>
               <div class="vacation-date-grid">
-                <label>Inicio<input id="vacationStart2" type="date" disabled /></label>
-                <label>Término<input id="vacationEnd2" type="date" disabled /></label>
+                <label>Inicio
+                  <span class="vacation-date-control">
+                    <span data-date-display-for="vacationStart2" aria-hidden="true">DD/MM/AAAA</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9.5h15M6.5 5h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>
+                    <input id="vacationStart2" type="date" aria-label="Inicio del rango 2, formato día, mes y año" disabled />
+                  </span>
+                </label>
+                <label>Término
+                  <span class="vacation-date-control">
+                    <span data-date-display-for="vacationEnd2" aria-hidden="true">DD/MM/AAAA</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9.5h15M6.5 5h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>
+                    <input id="vacationEnd2" type="date" aria-label="Término del rango 2, formato día, mes y año" disabled />
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -351,6 +375,6 @@
 
     <script src="./vendor/xlsx.full.min.js?v=0.20.3"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js"></script>
-    <script src="./app.js?v=20261123-1"></script>
+    <script src="./app.js?v=20261123-2"></script>
   </body>
 </html>

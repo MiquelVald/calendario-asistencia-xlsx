@@ -243,7 +243,7 @@ h1 {
 .vacation-panel .field-group { margin-top: 18px; }
 .vacation-panel .field-group > label { display: block; margin-bottom: 7px; color: #33455f; font-size: .72rem; font-weight: 800; }
 .vacation-panel select,
-.vacation-date-grid input {
+.vacation-date-control {
   width: 100%;
   height: 46px;
   border: 1px solid #cfd9e6;
@@ -254,9 +254,9 @@ h1 {
   outline: none;
 }
 .vacation-panel select:focus,
-.vacation-date-grid input:focus { border-color: #6f91c4; box-shadow: 0 0 0 4px rgba(81,124,183,.1); }
+.vacation-date-control:focus-within { border-color: #6f91c4; box-shadow: 0 0 0 4px rgba(81,124,183,.1); }
 .vacation-panel select:disabled,
-.vacation-date-grid input:disabled { color: #929bad; background: #f4f6f9; cursor: not-allowed; }
+.vacation-date-control:has(input:disabled) { color: #929bad; background: #f4f6f9; cursor: not-allowed; }
 .vacation-balance { margin-top: 24px; padding: 6px 17px 14px; border: 1px solid #bfd1eb; border-radius: 15px; background: #edf4ff; }
 .vacation-balance[hidden] { display: none; }
 .vacation-balance-period,
@@ -286,7 +286,11 @@ h1 {
 .vacation-range-heading .text-button { padding: 2px 0; font-size: .68rem; }
 .vacation-date-grid { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .vacation-date-grid label { color: #33455f; font-size: .68rem; font-weight: 800; }
-.vacation-date-grid input { margin-top: 7px; font-size: .76rem; font-weight: 500; }
+.vacation-date-control { margin-top: 7px; position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .76rem; font-weight: 500; }
+.vacation-date-control > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vacation-date-control svg { width: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.vacation-date-control input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.vacation-date-control input:disabled { cursor: not-allowed; }
 .vacation-range-button { margin-top: 10px; padding: 4px 0; font-size: .72rem; }
 .vacation-range-button[hidden] { display: none; }
 .vacation-policy-note { margin: 12px 0 0; padding: 11px 13px; border-left: 3px solid #d9a441; border-radius: 9px; color: #6d5628; background: #fff8e8; font-size: .875rem; font-weight: 650; line-height: 1.45; }

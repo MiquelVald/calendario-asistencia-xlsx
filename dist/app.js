@@ -574,6 +574,7 @@ function vacationRequestDetails() {
 
 function renderVacationRequest() {
   updateVacationDateLimits();
+  updateVacationDateDisplays();
   const employee = state.selectedVacationEmployee;
   const balances = vacationBalances(employee);
   const details = vacationRequestDetails();
@@ -699,6 +700,14 @@ function findTemplateEmployeeByCode(code) {
 function parseDateInput(value) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
   return match ? safeDate(Number(match[1]), Number(match[2]), Number(match[3])) : null;
+}
+
+function updateVacationDateDisplays() {
+  document.querySelectorAll("[data-date-display-for]").forEach((display) => {
+    const input = document.getElementById(display.dataset.dateDisplayFor);
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input?.value || "");
+    display.textContent = match ? `${match[3]}/${match[2]}/${match[1]}` : "DD/MM/AAAA";
+  });
 }
 
 function todayDateOnly() {
