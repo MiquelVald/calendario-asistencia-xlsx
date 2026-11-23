@@ -70,7 +70,13 @@ const els = {
   vacationBalanceNote: document.querySelector("#vacationBalanceNote"),
   vacationStart: document.querySelector("#vacationStart"),
   vacationEnd: document.querySelector("#vacationEnd"),
+  vacationRange2: document.querySelector("#vacationRange2"),
+  vacationStart2: document.querySelector("#vacationStart2"),
+  vacationEnd2: document.querySelector("#vacationEnd2"),
+  vacationAddRangeButton: document.querySelector("#vacationAddRangeButton"),
+  vacationRemoveRangeButton: document.querySelector("#vacationRemoveRangeButton"),
   vacationDayCount: document.querySelector("#vacationDayCount"),
+  vacationReturnLabel: document.querySelector("#vacationReturnLabel"),
   vacationReturnDate: document.querySelector("#vacationReturnDate"),
   vacationNotes: document.querySelector("#vacationNotes"),
   vacationMessage: document.querySelector("#vacationMessage"),
@@ -127,11 +133,12 @@ els.vacationEmployeeSelect.addEventListener("change", () => {
   state.selectedVacationEmployee = state.vacationEmployees.find((employee) => String(employee.code) === els.vacationEmployeeSelect.value) || null;
   els.vacationStart.value = "";
   els.vacationEnd.value = "";
+  resetSecondVacationRange();
   els.vacationNotes.value = "";
   renderVacationRequest();
 });
 
-[els.vacationStart, els.vacationEnd].forEach((input) => {
+[els.vacationStart, els.vacationEnd, els.vacationStart2, els.vacationEnd2].forEach((input) => {
   input.addEventListener("change", () => {
     updateVacationDateLimits();
     renderVacationRequest();
@@ -140,6 +147,20 @@ els.vacationEmployeeSelect.addEventListener("change", () => {
     updateVacationDateLimits();
     renderVacationRequest();
   });
+});
+
+els.vacationAddRangeButton.addEventListener("click", () => {
+  els.vacationRange2.hidden = false;
+  els.vacationStart2.value = "";
+  els.vacationEnd2.value = "";
+  updateVacationDateLimits();
+  renderVacationRequest();
+  els.vacationStart2.focus();
+});
+
+els.vacationRemoveRangeButton.addEventListener("click", () => {
+  resetSecondVacationRange();
+  renderVacationRequest();
 });
 
 els.vacationReportButton.addEventListener("click", () => {
@@ -450,26 +471,37 @@ function workingDatesInRange(start, end) {
   return dates;
 }
 
-function allocateVacationPeriods(employee, workingDates) {
+function configuredVacationRanges() {
+  return [
+    { number: 1, enabled: true, startValue: els.vacationStart.value, endValue: els.vacationEnd.value },
+    { number: 2, enabled: !els.vacationRange2.hidden, startValue: els.vacationStart2.value, endValue: els.vacationEnd2.value },
+  ].filter((range) => range.enabled);
+}
+
+function allocateVacationRanges(employee, ranges) {
   const balances = vacationBalances(employee);
-  const periods = [
-    { year: 2025, available: balances.available2025 },
-    { year: 2026, available: balances.available2026 },
-  ];
+  const remainingByPeriod = new Map([
+    [2025, balances.available2025],
+    [2026, balances.available2026],
+  ]);
   const allocations = [];
-  let dateIndex = 0;
-  let remaining = workingDates.length;
-  periods.forEach((period) => {
-    const days = Math.min(period.available, remaining);
-    if (days <= 0) return;
-    allocations.push({
-      year: period.year,
-      days,
-      start: workingDates[dateIndex],
-      end: workingDates[dateIndex + days - 1],
+  ranges.forEach((range) => {
+    let dateIndex = 0;
+    [2025, 2026].forEach((year) => {
+      const remainingDates = range.workingDates.length - dateIndex;
+      const available = remainingByPeriod.get(year) || 0;
+      const days = Math.min(available, remainingDates);
+      if (days <= 0) return;
+      allocations.push({
+        rangeNumber: range.number,
+        year,
+        days,
+        start: range.workingDates[dateIndex],
+        end: range.workingDates[dateIndex + days - 1],
+      });
+      remainingByPeriod.set(year, available - days);
+      dateIndex += days;
     });
-    dateIndex += days;
-    remaining -= days;
   });
   return allocations;
 }
@@ -477,38 +509,66 @@ function allocateVacationPeriods(employee, workingDates) {
 function vacationRequestDetails() {
   const employee = state.selectedVacationEmployee;
   const balances = vacationBalances(employee);
-  const start = parseDateInput(els.vacationStart.value);
-  const end = parseDateInput(els.vacationEnd.value);
-  const details = { employee, balances, start, end, days: 0, returnDate: null, allocations: [], error: "" };
-  if (!employee || balances.total <= 0 || !start || !end) return details;
+  const details = { employee, balances, start: null, end: null, days: 0, returnDate: null, ranges: [], allocations: [], error: "" };
+  if (!employee || balances.total <= 0) return details;
   const today = todayDateOnly();
-  if (start < today || end < today) {
-    details.error = "No puedes seleccionar fechas anteriores a hoy.";
+  const inputRanges = configuredVacationRanges();
+  const hasAnyDate = inputRanges.some((range) => range.startValue || range.endValue);
+  for (const inputRange of inputRanges) {
+    if (!inputRange.startValue && !inputRange.endValue && !hasAnyDate) return details;
+    if (!inputRange.startValue || !inputRange.endValue) {
+      details.error = `Completa el inicio y el término del rango ${inputRange.number}.`;
+      return details;
+    }
+    const start = parseDateInput(inputRange.startValue);
+    const end = parseDateInput(inputRange.endValue);
+    if (!start || !end) {
+      details.error = `Las fechas del rango ${inputRange.number} no son válidas.`;
+      return details;
+    }
+    if (start < today || end < today) {
+      details.error = `El rango ${inputRange.number} contiene fechas anteriores a hoy.`;
+      return details;
+    }
+    if (end < start) {
+      details.error = `El término del rango ${inputRange.number} debe ser igual o posterior al inicio.`;
+      return details;
+    }
+    if (nonWorkingDay(start) || nonWorkingDay(end)) {
+      details.error = `El inicio y el término del rango ${inputRange.number} deben ser días laborables.`;
+      return details;
+    }
+    const workingDates = workingDatesInRange(start, end);
+    if (!workingDates.length) {
+      details.error = `El rango ${inputRange.number} no contiene días laborables.`;
+      return details;
+    }
+    details.ranges.push({
+      number: inputRange.number,
+      start,
+      end,
+      days: workingDates.length,
+      workingDates,
+      returnDate: nextWorkingDay(end),
+    });
+  }
+
+  details.ranges.sort((a, b) => a.start - b.start);
+  if (details.ranges.length > 1 && details.ranges.some((range, index) => index > 0 && range.start <= details.ranges[index - 1].end)) {
+    details.error = "Los rangos de vacaciones no pueden traslaparse.";
     return details;
   }
-  if (end < start) {
-    details.error = "La fecha de término debe ser igual o posterior al inicio.";
-    return details;
-  }
-  if (nonWorkingDay(start) || nonWorkingDay(end)) {
-    details.error = "El inicio y el término deben ser días laborables.";
-    return details;
-  }
-  const workingDates = workingDatesInRange(start, end);
-  details.days = workingDates.length;
-  details.returnDate = nextWorkingDay(end);
-  if (!details.days) {
-    details.error = "El rango no contiene días laborables.";
-    details.returnDate = null;
-    return details;
-  }
+  details.start = details.ranges[0]?.start || null;
+  details.end = details.ranges.at(-1)?.end || null;
+  details.days = details.ranges.reduce((total, range) => total + range.days, 0);
+  details.returnDate = details.ranges.at(-1)?.returnDate || null;
   if (details.days > balances.total) {
     details.error = balances.available2025 > 0
       ? `El saldo total disponible es de ${formatVacationDays(balances.total)}: ${formatVacationDays(balances.available2025)} de 2025 y ${formatVacationDays(balances.available2026)} de 2026.`
       : `El saldo disponible del periodo 2026 es de ${formatVacationDays(balances.available2026)}.`;
     return details;
   }
-  details.allocations = allocateVacationPeriods(employee, workingDates);
+  details.allocations = allocateVacationRanges(employee, details.ranges);
   return details;
 }
 
@@ -521,6 +581,11 @@ function renderVacationRequest() {
   const has2025Balance = balances.available2025 > 0;
   els.vacationStart.disabled = !hasBalance;
   els.vacationEnd.disabled = !hasBalance;
+  els.vacationStart2.disabled = !hasBalance;
+  els.vacationEnd2.disabled = !hasBalance;
+  els.vacationAddRangeButton.disabled = !hasBalance;
+  els.vacationAddRangeButton.hidden = !els.vacationRange2.hidden;
+  els.vacationRemoveRangeButton.disabled = !hasBalance;
   els.vacationBalance.hidden = !employee;
   els.vacationBalance.classList.toggle("is-empty", !employee);
   els.vacationPeriod2025.hidden = Boolean(employee && !has2025Balance);
@@ -547,10 +612,11 @@ function renderVacationRequest() {
   }
 
   els.vacationDayCount.textContent = details.days ? formatVacationDays(details.days) : "—";
-  els.vacationReturnDate.textContent = details.returnDate ? capitalize(fullDateFormatter.format(details.returnDate)) : "—";
+  els.vacationReturnLabel.textContent = details.ranges.length > 1 ? "Regresos al trabajo" : "Regreso al trabajo";
+  els.vacationReturnDate.textContent = details.ranges.length ? rangeReturnSummary(details.ranges) : "—";
 
   const templateEmployee = employee ? findTemplateEmployeeByCode(employee.code) : null;
-  const ready = Boolean(employee && hasBalance && details.start && details.end && details.days && details.returnDate && details.allocations.length && !details.error && state.templateBytes && templateEmployee);
+  const ready = Boolean(employee && hasBalance && details.ranges.length && details.days && details.allocations.length && !details.error && state.templateBytes && templateEmployee);
   els.vacationGenerateButton.disabled = !ready;
   els.vacationTemplateButton.textContent = state.templateBytes ? "Cambiar formato" : "Configurar formato";
 
@@ -572,21 +638,22 @@ function renderVacationRequest() {
     els.vacationGenerateButton.textContent = "Empleado no encontrado";
     els.vacationGenerateNote.textContent = "El número de empleado no aparece en la hoja EMPLEADOS del formato.";
     setVacationMessage(`No encontré el número ${employee.code} en el formato institucional.`, "error");
-  } else if (!details.start || !details.end) {
-    els.vacationGenerateButton.textContent = "Selecciona las fechas";
-    els.vacationGenerateNote.textContent = has2025Balance
-      ? `Puedes solicitar hasta ${formatVacationDays(balances.total)} entre los periodos 2025 y 2026.`
-      : `Puedes solicitar hasta ${formatVacationDays(balances.available2026)} del periodo 2026.`;
-    setVacationMessage("");
   } else if (details.error) {
     els.vacationGenerateButton.textContent = "Revisa las fechas";
     els.vacationGenerateNote.textContent = has2025Balance
       ? `Saldo total: ${formatVacationDays(balances.total)}.`
       : `Saldo 2026: ${formatVacationDays(balances.available2026)}.`;
     setVacationMessage(details.error, "error");
+  } else if (!details.ranges.length) {
+    els.vacationGenerateButton.textContent = "Selecciona las fechas";
+    els.vacationGenerateNote.textContent = has2025Balance
+      ? `Puedes solicitar hasta ${formatVacationDays(balances.total)} entre los periodos 2025 y 2026.`
+      : `Puedes solicitar hasta ${formatVacationDays(balances.available2026)} del periodo 2026.`;
+    setVacationMessage("");
   } else {
     els.vacationGenerateButton.textContent = `Generar solicitud · ${formatVacationDays(details.days)}`;
-    els.vacationGenerateNote.textContent = `Se aplicarán ${allocationSummary(details.allocations)}. Regreso: ${shortDateFormatter.format(details.returnDate)}.`;
+    const returnLabel = details.ranges.length > 1 ? "Regresos" : "Regreso";
+    els.vacationGenerateNote.textContent = `Se aplicarán ${allocationSummary(details.allocations)}. ${returnLabel}: ${rangeReturnSummary(details.ranges, true)}.`;
     setVacationMessage("");
   }
 }
@@ -597,7 +664,21 @@ function balanceExpirationText(available, expiration) {
 }
 
 function allocationSummary(allocations) {
-  return allocations.map((allocation) => `${formatVacationDays(allocation.days)} a ${allocation.year}`).join(" y ");
+  const daysByYear = new Map();
+  allocations.forEach((allocation) => daysByYear.set(allocation.year, (daysByYear.get(allocation.year) || 0) + allocation.days));
+  return [...daysByYear].map(([year, days]) => `${formatVacationDays(days)} a ${year}`).join(" y ");
+}
+
+function rangeReturnSummary(ranges, compact = false) {
+  if (ranges.length === 1) {
+    return compact
+      ? shortDateFormatter.format(ranges[0].returnDate)
+      : capitalize(fullDateFormatter.format(ranges[0].returnDate));
+  }
+  return [...ranges]
+    .sort((a, b) => a.number - b.number)
+    .map((range) => `Rango ${range.number}: ${shortDateFormatter.format(range.returnDate)}`)
+    .join(" · ");
 }
 
 function setVacationReportMessage(message, type = "") {
@@ -625,12 +706,21 @@ function todayDateOnly() {
   return new Date(today.getFullYear(), today.getMonth(), today.getDate());
 }
 
+function resetSecondVacationRange() {
+  els.vacationStart2.value = "";
+  els.vacationEnd2.value = "";
+  els.vacationRange2.hidden = true;
+}
+
 function updateVacationDateLimits() {
   const todayKey = toDateKey(todayDateOnly());
-  els.vacationStart.min = todayKey;
-  els.vacationEnd.min = els.vacationStart.value && els.vacationStart.value > todayKey
-    ? els.vacationStart.value
-    : todayKey;
+  [
+    [els.vacationStart, els.vacationEnd],
+    [els.vacationStart2, els.vacationEnd2],
+  ].forEach(([startInput, endInput]) => {
+    startInput.min = todayKey;
+    endInput.min = startInput.value && startInput.value > todayKey ? startInput.value : todayKey;
+  });
 }
 
 function countWorkingDays(start, end) {
@@ -1489,7 +1579,8 @@ function fillVacationSheet(document, employee, request, comments) {
   fillEmployeeFields(document, employee, new Date());
   clearIncidentRows(document);
   clearVacationRows(document);
-  const rows = [43, 44];
+  const rows = [43, 44, 45, 46];
+  if (request.allocations.length > rows.length) throw new Error("El formato no tiene filas suficientes para todos los rangos seleccionados.");
   request.allocations.forEach((allocation, index) => {
     const row = rows[index];
     setNumericCell(document, `C${row}`, excelDateSerial(allocation.start));
@@ -1497,7 +1588,9 @@ function fillVacationSheet(document, employee, request, comments) {
     setNumericCell(document, `G${row}`, allocation.year);
     setNumericCell(document, `H${row}`, allocation.days);
   });
-  const automaticComment = `${request.allocations.map((allocation) => `${allocation.days} ${allocation.days === 1 ? "Día" : "Días"} de vacaciones correspondientes al periodo ${allocation.year}`).join(" y ")}.`;
+  const daysByYear = new Map();
+  request.allocations.forEach((allocation) => daysByYear.set(allocation.year, (daysByYear.get(allocation.year) || 0) + allocation.days));
+  const automaticComment = `${[...daysByYear].map(([year, days]) => `${days} ${days === 1 ? "Día" : "Días"} de vacaciones correspondientes al periodo ${year}`).join(" y ")}.`;
   const additionalComment = normalizeNotes(comments);
   setInlineTextCell(document, "A49", additionalComment ? `${automaticComment}\n${additionalComment}` : automaticComment);
 }

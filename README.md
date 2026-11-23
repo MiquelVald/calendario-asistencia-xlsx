@@ -2,7 +2,7 @@
 
 Aplicación web que permite elegir entre solicitar vacaciones y elaborar un formato de incidencias.
 
-El flujo de vacaciones lee un reporte XLSX con el número y nombre del empleado en las columnas A y B, el saldo disponible de 2025 y su vencimiento en D/E, y el saldo de 2026 y su vencimiento en F/G. No muestra el saldo vencido de la columna C. Presenta ambos saldos y los acumula: consume primero 2025 y continúa con 2026 cuando la solicitud lo requiere. La persona selecciona inicio y término, la aplicación cuenta los días laborables, muestra la fecha de regreso y genera una fila del formato por cada periodo utilizado.
+El flujo de vacaciones lee un reporte XLSX con el número y nombre del empleado en las columnas A y B, el saldo disponible de 2025 y su vencimiento en D/E, y el saldo de 2026 y su vencimiento en F/G. No muestra el saldo vencido de la columna C. Presenta ambos saldos y los acumula: consume primero 2025 y continúa con 2026 cuando la solicitud lo requiere. La persona puede seleccionar uno o dos rangos de fechas; la aplicación evita traslapes, cuenta los días laborables, muestra el regreso de cada rango y genera una fila del formato por cada rango y periodo utilizado.
 
 El flujo de incidencias lee un archivo XLSX en el navegador, permite buscar una persona y muestra sus fechas en un calendario.
 

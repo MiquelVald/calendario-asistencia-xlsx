@@ -278,9 +278,17 @@ h1 {
 .vacation-balance-note { display: block; padding-top: 9px; border-top: 1px solid #d4e1f2; color: #687a94; font-size: .68rem; line-height: 1.45; }
 .vacation-balance.is-empty { border-color: #e1e6ed; background: #f8f9fb; }
 .vacation-balance.is-empty strong { color: #8993a3; }
-.vacation-date-grid { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vacation-range { margin-top: 16px; }
+.vacation-range-secondary { padding-top: 14px; border-top: 1px solid #e1e7f0; }
+.vacation-range-secondary[hidden] { display: none; }
+.vacation-range-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.vacation-range-heading > strong { color: #2b405f; font-size: .72rem; }
+.vacation-range-heading .text-button { padding: 2px 0; font-size: .68rem; }
+.vacation-date-grid { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .vacation-date-grid label { color: #33455f; font-size: .68rem; font-weight: 800; }
 .vacation-date-grid input { margin-top: 7px; font-size: .76rem; font-weight: 500; }
+.vacation-range-button { margin-top: 10px; padding: 4px 0; font-size: .72rem; }
+.vacation-range-button[hidden] { display: none; }
 .vacation-policy-note { margin: 12px 0 0; padding: 11px 13px; border-left: 3px solid #d9a441; border-radius: 9px; color: #6d5628; background: #fff8e8; font-size: .875rem; font-weight: 650; line-height: 1.45; }
 .vacation-summary { margin-top: 14px; border: 1px solid #e1e6ee; border-radius: 14px; overflow: hidden; background: #fbfcfe; }
 .vacation-summary > div { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }

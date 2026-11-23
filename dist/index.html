@@ -8,7 +8,7 @@
       content="Solicita vacaciones o genera un formato de incidencias de asistencia."
     />
     <title>Vacaciones e incidencias</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20261123-1" />
   </head>
   <body>
     <div class="page-shell">
@@ -122,16 +122,36 @@
               <small id="vacationBalanceNote" class="vacation-balance-note">Los días se aplican primero al saldo más antiguo.</small>
             </div>
 
-            <div class="vacation-date-grid">
-              <label>Inicio<input id="vacationStart" type="date" disabled /></label>
-              <label>Término<input id="vacationEnd" type="date" disabled /></label>
+            <div class="vacation-range">
+              <div class="vacation-range-heading">
+                <strong>Rango 1</strong>
+              </div>
+              <div class="vacation-date-grid">
+                <label>Inicio<input id="vacationStart" type="date" disabled /></label>
+                <label>Término<input id="vacationEnd" type="date" disabled /></label>
+              </div>
+            </div>
+
+            <button id="vacationAddRangeButton" class="text-button vacation-range-button" type="button" disabled>
+              Agregar otro rango
+            </button>
+
+            <div id="vacationRange2" class="vacation-range vacation-range-secondary" hidden>
+              <div class="vacation-range-heading">
+                <strong>Rango 2</strong>
+                <button id="vacationRemoveRangeButton" class="text-button" type="button">Quitar rango</button>
+              </div>
+              <div class="vacation-date-grid">
+                <label>Inicio<input id="vacationStart2" type="date" disabled /></label>
+                <label>Término<input id="vacationEnd2" type="date" disabled /></label>
+              </div>
             </div>
 
             <p class="vacation-policy-note">Recuerda pedir tus días de vacaciones con al menos 5 días de anticipación.</p>
 
             <div class="vacation-summary" aria-live="polite">
               <div><span>Días de vacaciones</span><strong id="vacationDayCount">—</strong></div>
-              <div><span>Regreso al trabajo</span><strong id="vacationReturnDate">—</strong></div>
+              <div><span id="vacationReturnLabel">Regreso al trabajo</span><strong id="vacationReturnDate">—</strong></div>
             </div>
 
             <div class="notes-field vacation-notes">
@@ -331,6 +351,6 @@
 
     <script src="./vendor/xlsx.full.min.js?v=0.20.3"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js"></script>
-    <script src="./app.js?v=20261120-5"></script>
+    <script src="./app.js?v=20261123-1"></script>
   </body>
 </html>
