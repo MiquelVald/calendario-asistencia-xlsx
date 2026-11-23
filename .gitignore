@@ -1,5 +1,4 @@
 .openai/
-dist/vendor/
 *.zip
 *.tar.gz
 .artifact-verify/
