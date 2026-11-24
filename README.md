@@ -6,6 +6,8 @@ El flujo de vacaciones lee un reporte XLSX con el número y nombre del empleado 
 
 El flujo de incidencias lee un archivo XLSX en el navegador, permite buscar una persona y muestra sus fechas en un calendario.
 
+Cuando el panel administrativo del puerto 8081 tiene vacaciones aceptadas para la persona seleccionada, esos días aparecen en verde en el calendario y se excluyen automáticamente de las incidencias que pueden agregarse al formato de justificación.
+
 También puede cargar una sola vez el formato institucional de vacaciones y permisos, relacionar a la persona con la hoja `EMPLEADOS` y descargar desde el calendario una copia con número de empleado, datos del puesto, firmas, notas y los días seleccionados para justificar. El calendario ofrece un modo con casillas para elegir llegadas tardías, salidas tempranas y días sin entrada ni salida. La plantilla se conserva en IndexedDB únicamente para ese navegador y dispositivo; no se incluye en el repositorio ni se envía a un servidor.
 
 ## Uso local

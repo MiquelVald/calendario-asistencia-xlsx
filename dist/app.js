@@ -111,6 +111,8 @@ const state = {
   selectedVacationEmployee: null,
   vacationReportFileName: "",
   vacationSubmissionIds: new Map(),
+  acceptedVacationDays: new Set(),
+  acceptedVacationsRequest: 0,
 };
 
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
@@ -1248,6 +1250,7 @@ function closePeopleList() {
 function selectPerson(person) {
   if (!person) return;
   state.selectedPerson = person;
+  state.acceptedVacationDays = new Set();
   els.personSearch.value = person.name;
   closePeopleList();
   const firstDate = person.records[0].date;
@@ -1258,12 +1261,56 @@ function selectPerson(person) {
   renderResults();
   els.results.hidden = false;
   els.results.scrollIntoView({ behavior: "smooth", block: "start" });
+  void loadAcceptedVacations(person);
+}
+
+async function loadAcceptedVacations(person) {
+  const requestId = ++state.acceptedVacationsRequest;
+  const employee = findEmployeeForPerson(person.name);
+  const query = new URLSearchParams({ employeeName: person.name });
+  if (employee?.code) query.set("employeeNumber", String(employee.code));
+  try {
+    const adminOrigin = `${window.location.protocol}//${window.location.hostname}:8081`;
+    const response = await fetch(`${adminOrigin}/api/public/accepted-vacations?${query}`, { cache: "no-store" });
+    if (!response.ok) throw new Error("No pude consultar las vacaciones aceptadas.");
+    const payload = await response.json();
+    if (requestId !== state.acceptedVacationsRequest || state.selectedPerson?.key !== person.key) return;
+    state.acceptedVacationDays = vacationDaysFrom(payload.vacations);
+    renderGenerator();
+    renderResults();
+  } catch (error) {
+    if (requestId !== state.acceptedVacationsRequest || state.selectedPerson?.key !== person.key) return;
+    console.info("No se pudieron consultar las vacaciones aceptadas.", error);
+    setGeneratorMessage("No pude consultar las vacaciones aceptadas; verifica que el panel administrativo esté disponible.", "warning");
+  }
+}
+
+function vacationDaysFrom(vacations) {
+  const days = new Set();
+  (Array.isArray(vacations) ? vacations : []).forEach((vacation) => {
+    (Array.isArray(vacation.ranges) ? vacation.ranges : []).forEach((range) => {
+      const start = dateFromKey(range.start);
+      const end = dateFromKey(range.end);
+      if (!start || !end || start > end) return;
+      for (const date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+        if (!nonWorkingDay(date)) days.add(toDateKey(date));
+      }
+    });
+  });
+  return days;
+}
+
+function dateFromKey(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return toDateKey(date) === value ? date : null;
 }
 
 function renderResults() {
   const person = state.selectedPerson;
   if (!person) return;
-  const workingRecords = person.records.filter((record) => !nonWorkingDay(record.date));
+  const workingRecords = person.records.filter((record) => !nonWorkingDay(record.date) && !state.acceptedVacationDays.has(record.dateKey));
   const lateCount = workingRecords.filter((record) => record.entryAlert).length;
   const earlyCount = workingRecords.filter((record) => record.exitAlert).length;
   els.selectedName.textContent = person.name;
@@ -1551,7 +1598,9 @@ function justificationIncidents(records) {
       exitAlert: dateRecords.some((record) => record.exitAlert),
       hasNoCheck,
     };
-  }).filter((incident) => !nonWorkingDay(incident.date) && (incident.entryAlert || incident.exitAlert || incident.hasNoCheck)).sort((a, b) => a.date - b.date);
+  }).filter((incident) => !state.acceptedVacationDays.has(incident.dateKey)
+    && !nonWorkingDay(incident.date)
+    && (incident.entryAlert || incident.exitAlert || incident.hasNoCheck)).sort((a, b) => a.date - b.date);
 }
 
 function renderEmployeeMatch(hasMatch) {
@@ -1966,13 +2015,14 @@ function renderCalendar() {
     const key = toDateKey(date);
     const dayRecords = recordsByDate.get(key) || [];
     const nonWorking = nonWorkingDay(date);
-    const hasRed = !nonWorking && dayRecords.some((record) => record.entryAlert);
-    const hasOrange = !nonWorking && dayRecords.some((record) => record.exitAlert);
-    const hasNoCheck = !nonWorking && dayRecords.length > 0 && dayRecords.every((record) => !record.hasEntry && !record.hasExit);
+    const isVacation = state.acceptedVacationDays.has(key);
+    const hasRed = !nonWorking && !isVacation && dayRecords.some((record) => record.entryAlert);
+    const hasOrange = !nonWorking && !isVacation && dayRecords.some((record) => record.exitAlert);
+    const hasNoCheck = !nonWorking && !isVacation && dayRecords.length > 0 && dayRecords.every((record) => !record.hasEntry && !record.hasExit);
     const justificationIncident = incidentsByDate.get(key);
     const isJustificationSelected = state.selectedIncidentKeys.has(key);
-    const cell = document.createElement(dayRecords.length ? "button" : "span");
-    if (dayRecords.length) cell.type = "button";
+    const cell = document.createElement(dayRecords.length || isVacation ? "button" : "span");
+    if (dayRecords.length || isVacation) cell.type = "button";
     cell.className = [
       "day-cell",
       date.getDay() === 0 || date.getDay() === 6 ? "is-weekend" : "",
@@ -1980,18 +2030,20 @@ function renderCalendar() {
       hasRed ? "has-red" : "",
       hasOrange ? "has-orange" : "",
       hasNoCheck ? "has-no-check" : "",
+      isVacation ? "is-vacation" : "",
       nonWorking ? "is-non-working" : "",
       justificationIncident ? "is-justification-candidate" : "",
       isJustificationSelected ? "is-justification-selected" : "",
       state.selectedDate === key ? "is-selected" : "",
     ].filter(Boolean).join(" ");
-    cell.innerHTML = `<span class="day-number">${day}</span>${justificationIncident ? '<span class="calendar-checkbox" aria-hidden="true"></span>' : ""}${dayRecords.length ? '<span class="record-dot"></span>' : ""}`;
+    cell.innerHTML = `<span class="day-number">${day}</span>${justificationIncident ? '<span class="calendar-checkbox" aria-hidden="true"></span>' : ""}${isVacation ? '<span class="vacation-label">Vacaciones</span>' : dayRecords.length ? '<span class="record-dot"></span>' : ""}`;
     if (nonWorking) {
       cell.dataset.tooltip = "Día inhábil";
       cell.title = "Día inhábil";
     }
-    if (dayRecords.length) {
+    if (dayRecords.length || isVacation) {
       const alerts = [
+        isVacation ? "vacaciones aceptadas" : "",
         hasRed ? "llegada tardía" : "",
         hasOrange ? "salida temprana" : "",
         hasNoCheck ? "sin entrada ni salida" : "",
@@ -2032,10 +2084,11 @@ function renderDayDetails(dateKey) {
   const person = state.selectedPerson;
   if (!person || !dateKey) return;
   const records = person.records.filter((record) => record.dateKey === dateKey);
+  const isVacation = state.acceptedVacationDays.has(dateKey);
   if (!records.length) {
     els.dayDetails.hidden = true;
-    els.dayTitle.textContent = "Selecciona una fecha";
-    els.daySubtitle.textContent = "Haz clic en un día del calendario para ver sus registros.";
+    els.dayTitle.textContent = isVacation ? "Vacaciones" : "Selecciona una fecha";
+    els.daySubtitle.textContent = isVacation ? "Este día corresponde a vacaciones aceptadas." : "Haz clic en un día del calendario para ver sus registros.";
     return;
   }
   const primary = records[0];
@@ -2046,11 +2099,12 @@ function renderDayDetails(dateKey) {
   els.entryTime.textContent = primary.entry;
   els.exitTime.textContent = primary.exit;
   const nonWorking = nonWorkingDay(date);
-  els.entryBadge.hidden = Boolean(nonWorking) || !records.some((record) => record.entryAlert);
-  els.exitBadge.hidden = Boolean(nonWorking) || !records.some((record) => record.exitAlert);
-  const hasNoCheck = !nonWorking && records.every((record) => !record.hasEntry && !record.hasExit);
+  els.entryBadge.hidden = Boolean(nonWorking) || isVacation || !records.some((record) => record.entryAlert);
+  els.exitBadge.hidden = Boolean(nonWorking) || isVacation || !records.some((record) => record.exitAlert);
+  const hasNoCheck = !nonWorking && !isVacation && records.every((record) => !record.hasEntry && !record.hasExit);
   const messages = [];
-  if (nonWorking) messages.push(`Día no laborable: ${nonWorking.label}.`);
+  if (isVacation) messages.push("Vacaciones aceptadas; este día no necesita justificación.");
+  else if (nonWorking) messages.push(`Día no laborable: ${nonWorking.label}.`);
   else {
     if (!els.entryBadge.hidden) messages.push("Este día registra una llegada tardía.");
     if (!els.exitBadge.hidden) messages.push("Este día registra una salida temprana.");

@@ -525,6 +525,9 @@ button.day-cell:hover { transform: translateY(-1px); border-color: #acbdd3; box-
 .day-cell.has-orange { border-color: var(--orange-line); color: var(--orange-ink); background: var(--orange-bg); }
 .day-cell.has-red.has-orange { border-color: #eab391; background: linear-gradient(135deg, var(--salmon-bg) 0 50%, var(--orange-bg) 50% 100%); }
 .day-cell.has-no-check { border-color: var(--no-check-line); border-style: dashed; color: var(--no-check-ink); background: var(--no-check-bg); }
+.day-cell.is-vacation { border-color: #92c9a8; border-style: solid; color: #256642; background: #eaf8ef; }
+.day-cell.is-vacation:hover { border-color: #68ac85; box-shadow: 0 5px 13px rgba(42,120,76,.12); }
+.vacation-label { align-self: stretch; color: #287147; font-size: .56rem; font-weight: 850; line-height: 1.15; text-align: center; }
 .day-cell.is-non-working { position: relative; border-color: var(--non-working-line); border-style: solid; color: var(--non-working-ink); background: repeating-linear-gradient(135deg, #f5f6f8 0 8px, var(--non-working-bg) 8px 16px); cursor: default; }
 button.day-cell.is-non-working { cursor: default; }
 button.day-cell.is-non-working:hover { transform: none; border-color: var(--non-working-line); box-shadow: none; }
@@ -553,6 +556,7 @@ button.day-cell.is-non-working:hover { transform: none; border-color: var(--non-
 .legend-dot.salmon { background: #ffd8d1; border: 1px solid #e9a69d; }
 .legend-dot.orange { background: #ffe0b1; border: 1px solid #e9b668; }
 .legend-dot.no-check { border: 1px dashed var(--no-check-line); background: var(--no-check-bg); }
+.legend-dot.vacation { border: 1px solid #82bd9a; background: #dff4e7; }
 .legend-dot.non-working { border: 1px solid var(--non-working-line); background: repeating-linear-gradient(135deg, #f7f8fa 0 3px, var(--non-working-bg) 3px 6px); }
 
 .day-card h3 { margin: 0; color: #253c60; font-size: 1.2rem; line-height: 1.25; }
