@@ -14,7 +14,7 @@ Ejecuta `npm start` y abre `http://127.0.0.1:8080`. Los archivos XLSX no se incl
 
 El servidor admite estas variables:
 
-- `JUSTIFICACIONES_TEMPLATE_PATH`: formato institucional con las hojas `FORMATO` y `EMPLEADOS`.
+- `JUSTIFICACIONES_TEMPLATE_PATH`: formato institucional con las hojas `FORMATO` y `EMPLEADOS`. En Windows, si no se define, se utiliza `O:\2026 Formatos\Septiembre\2026 FormatodeVacacionesyPermisosOK.xlsx`.
 - `JUSTIFICACIONES_VACATIONS_PATH`: reporte de saldos de vacaciones.
 
 En Windows, si las variables no están definidas, el servidor local usa `O:\Miguel Valdez\JustificacionesMiniApp\VacacionesDates.xlsx` para vacaciones y `O:\2026 Formatos\2026 Reporte Lista de Asistencia` para los reportes mensuales. En Linux o en el servidor definitivo, configura las variables con las rutas montadas correspondientes.

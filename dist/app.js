@@ -55,6 +55,9 @@ const els = {
   employeeSelect: document.querySelector("#employeeSelect"),
   vacationReportStatus: document.querySelector("#vacationReportStatus"),
   vacationEmployeeSelect: document.querySelector("#vacationEmployeeSelect"),
+  vacationEmployeeSearch: document.querySelector("#vacationEmployeeSearch"),
+  vacationEmployeeList: document.querySelector("#vacationEmployeeList"),
+  vacationEmployeeToggle: document.querySelector("#vacationEmployeeToggle"),
   vacationEmployeeHint: document.querySelector("#vacationEmployeeHint"),
   vacationReportInput: document.querySelector("#vacationReportInput"),
   vacationReportButton: document.querySelector("#vacationReportButton"),
@@ -103,8 +106,11 @@ const state = {
   selectionMode: false,
   serverReports: [],
   vacationEmployees: [],
+  filteredVacationEmployees: [],
+  activeVacationEmployeeOption: -1,
   selectedVacationEmployee: null,
   vacationReportFileName: "",
+  vacationSubmissionIds: new Map(),
 };
 
 const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
@@ -129,16 +135,58 @@ els.workflowButtons.forEach((button) => {
   button.addEventListener("click", () => setWorkflow(button.dataset.workflow));
 });
 
-els.vacationEmployeeSelect.addEventListener("change", () => {
-  state.selectedVacationEmployee = state.vacationEmployees.find((employee) => String(employee.code) === els.vacationEmployeeSelect.value) || null;
-  els.vacationStart.value = "";
-  els.vacationEnd.value = "";
-  resetSecondVacationRange();
-  els.vacationNotes.value = "";
-  renderVacationRequest();
+els.vacationEmployeeSearch.addEventListener("focus", () => {
+  filterVacationEmployees(els.vacationEmployeeSearch.value);
+  openVacationEmployeeList();
+});
+
+els.vacationEmployeeSearch.addEventListener("input", () => {
+  clearSelectedVacationEmployee();
+  filterVacationEmployees(els.vacationEmployeeSearch.value);
+  openVacationEmployeeList();
+});
+
+els.vacationEmployeeToggle.addEventListener("click", () => {
+  if (els.vacationEmployeeList.hidden) {
+    els.vacationEmployeeSearch.focus();
+    filterVacationEmployees(els.vacationEmployeeSearch.value);
+    openVacationEmployeeList();
+  } else {
+    closeVacationEmployeeList();
+  }
+});
+
+els.vacationEmployeeSearch.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    if (els.vacationEmployeeList.hidden) openVacationEmployeeList();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    state.activeVacationEmployeeOption = Math.max(0, Math.min(
+      state.filteredVacationEmployees.length - 1,
+      state.activeVacationEmployeeOption + direction,
+    ));
+    renderVacationEmployeeList();
+  } else if (event.key === "Enter" && !els.vacationEmployeeList.hidden && state.filteredVacationEmployees.length) {
+    event.preventDefault();
+    selectVacationEmployee(state.filteredVacationEmployees[Math.max(0, state.activeVacationEmployeeOption)]);
+  } else if (event.key === "Escape") {
+    closeVacationEmployeeList();
+  }
+});
+
+els.vacationEmployeeList.addEventListener("mousedown", (event) => {
+  const option = event.target.closest?.(".vacation-employee-option");
+  if (!option) return;
+  event.preventDefault();
+  selectVacationEmployee(state.filteredVacationEmployees[Number(option.dataset.index)]);
 });
 
 [els.vacationStart, els.vacationEnd, els.vacationStart2, els.vacationEnd2].forEach((input) => {
+  input.addEventListener("click", () => {
+    if (!input.disabled && typeof input.showPicker === "function") {
+      try { input.showPicker(); } catch {}
+    }
+  });
   input.addEventListener("change", () => {
     updateVacationDateLimits();
     renderVacationRequest();
@@ -278,6 +326,7 @@ els.personList.addEventListener("click", (event) => {
 
 document.addEventListener("click", (event) => {
   if (!event.target.closest("#combobox")) closePeopleList();
+  if (!event.target.closest("#vacationEmployeeCombobox")) closeVacationEmployeeList();
 });
 
 els.prevMonth.addEventListener("click", () => changeMonth(-1));
@@ -366,8 +415,14 @@ async function initializeVacationReport() {
 
 function showVacationReportUpload() {
   state.vacationEmployees = [];
+  state.filteredVacationEmployees = [];
   state.selectedVacationEmployee = null;
   els.vacationEmployeeSelect.disabled = true;
+  els.vacationEmployeeSearch.disabled = true;
+  els.vacationEmployeeToggle.disabled = true;
+  els.vacationEmployeeSearch.value = "";
+  renderVacationEmployeeList();
+  closeVacationEmployeeList();
   els.vacationReportButton.hidden = false;
   setVacationReportMessage("El servidor no tiene un reporte de vacaciones configurado.", "warning");
   els.vacationEmployeeHint.textContent = "Carga el reporte para consultar los saldos.";
@@ -392,6 +447,8 @@ async function loadVacationWorkbook(file) {
     state.vacationReportFileName = file.name;
     populateVacationEmployeeSelect();
     els.vacationEmployeeSelect.disabled = false;
+    els.vacationEmployeeSearch.disabled = false;
+    els.vacationEmployeeToggle.disabled = false;
     els.vacationReportButton.hidden = true;
     els.vacationEmployeeHint.textContent = `${employees.length} ${employees.length === 1 ? "persona disponible" : "personas disponibles"}.`;
     setVacationReportMessage(`${file.name} · ${employees.length} empleados`, "success");
@@ -400,8 +457,14 @@ async function loadVacationWorkbook(file) {
   } catch (error) {
     console.error(error);
     state.vacationEmployees = [];
+    state.filteredVacationEmployees = [];
     state.selectedVacationEmployee = null;
     els.vacationEmployeeSelect.disabled = true;
+    els.vacationEmployeeSearch.disabled = true;
+    els.vacationEmployeeToggle.disabled = true;
+    els.vacationEmployeeSearch.value = "";
+    renderVacationEmployeeList();
+    closeVacationEmployeeList();
     els.vacationReportButton.hidden = false;
     setVacationReportMessage(error.message || "No pude leer el reporte de vacaciones.", "error");
     renderVacationRequest();
@@ -453,6 +516,84 @@ function populateVacationEmployeeSelect() {
   state.vacationEmployees.forEach((employee) => {
     els.vacationEmployeeSelect.add(new Option(`${employee.code} · ${displayName(employee.name)}`, String(employee.code)));
   });
+  els.vacationEmployeeSelect.value = "";
+  els.vacationEmployeeSearch.value = "";
+  filterVacationEmployees("");
+}
+
+function clearSelectedVacationEmployee() {
+  if (!state.selectedVacationEmployee) return;
+  state.selectedVacationEmployee = null;
+  els.vacationEmployeeSelect.value = "";
+  els.vacationStart.value = "";
+  els.vacationEnd.value = "";
+  resetSecondVacationRange();
+  els.vacationNotes.value = "";
+  renderVacationRequest();
+}
+
+function filterVacationEmployees(query) {
+  const normalizedQuery = normalizeText(query);
+  state.filteredVacationEmployees = state.vacationEmployees.filter((employee) => {
+    const searchable = normalizeText(`${employee.code} ${employee.name} ${displayName(employee.name)}`);
+    return searchable.includes(normalizedQuery);
+  });
+  state.activeVacationEmployeeOption = state.filteredVacationEmployees.length ? 0 : -1;
+  renderVacationEmployeeList();
+}
+
+function renderVacationEmployeeList() {
+  els.vacationEmployeeList.replaceChildren();
+  if (!state.filteredVacationEmployees.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-option";
+    empty.textContent = state.vacationEmployees.length
+      ? "No encontré empleados con esa búsqueda."
+      : "No hay empleados disponibles.";
+    els.vacationEmployeeList.append(empty);
+    return;
+  }
+
+  state.filteredVacationEmployees.forEach((employee, index) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = `person-option vacation-employee-option${index === state.activeVacationEmployeeOption ? " is-active" : ""}`;
+    option.dataset.index = String(index);
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", String(String(employee.code) === String(state.selectedVacationEmployee?.code || "")));
+    option.textContent = `${employee.code} · ${displayName(employee.name)}`;
+    option.addEventListener("mouseenter", () => {
+      state.activeVacationEmployeeOption = index;
+      els.vacationEmployeeList.querySelector(".is-active")?.classList.remove("is-active");
+      option.classList.add("is-active");
+    });
+    els.vacationEmployeeList.append(option);
+  });
+  els.vacationEmployeeList.querySelector(".is-active")?.scrollIntoView({ block: "nearest" });
+}
+
+function openVacationEmployeeList() {
+  if (els.vacationEmployeeSearch.disabled) return;
+  els.vacationEmployeeList.hidden = false;
+  els.vacationEmployeeSearch.setAttribute("aria-expanded", "true");
+}
+
+function closeVacationEmployeeList() {
+  els.vacationEmployeeList.hidden = true;
+  els.vacationEmployeeSearch.setAttribute("aria-expanded", "false");
+}
+
+function selectVacationEmployee(employee) {
+  if (!employee) return;
+  state.selectedVacationEmployee = employee;
+  els.vacationEmployeeSelect.value = String(employee.code);
+  els.vacationEmployeeSearch.value = `${employee.code} · ${displayName(employee.name)}`;
+  els.vacationStart.value = "";
+  els.vacationEnd.value = "";
+  resetSecondVacationRange();
+  els.vacationNotes.value = "";
+  closeVacationEmployeeList();
+  renderVacationRequest();
 }
 
 function vacationBalances(employee = state.selectedVacationEmployee) {
@@ -1219,6 +1360,7 @@ async function initializeTemplate() {
       const fileName = decodeURIComponent(response.headers.get("X-Template-Name") || "Formato base del servidor.xlsx");
       applyTemplateWorkbook(bytes, fileName);
       els.templateButton.hidden = true;
+      els.vacationTemplateButton.hidden = true;
       return;
     }
   } catch (error) {
@@ -1468,6 +1610,8 @@ async function generateVacationFile() {
   els.vacationGenerateButton.textContent = "Generando…";
   setVacationMessage("Preparando la solicitud de vacaciones…");
   let generatedFileName = "";
+  let administrativeFolio = "";
+  let administrativeWarning = "";
   try {
     const zip = await JSZip.loadAsync(state.templateBytes);
     const sheetPath = await worksheetPath(zip, "FORMATO");
@@ -1486,13 +1630,60 @@ async function generateVacationFile() {
     });
     generatedFileName = `Vacaciones_${safeFileName(request.employee.name)}_${toDateKey(request.start)}_${toDateKey(request.end)}.xlsx`;
     downloadBlob(blob, generatedFileName);
+    try {
+      const registration = await registerVacationRequest(request);
+      administrativeFolio = registration?.request?.folio || "";
+    } catch (registrationError) {
+      console.info("El formato se generó, pero la bandeja administrativa no está disponible.", registrationError);
+      administrativeWarning = " El formato se descargó, pero no pude registrarlo en la bandeja administrativa.";
+    }
   } catch (error) {
     console.error(error);
     setVacationMessage(error.message || "No pude generar la solicitud de vacaciones.", "error");
   } finally {
     renderVacationRequest();
-    if (generatedFileName) setVacationMessage(`Archivo generado: ${generatedFileName}`, "success");
+    if (generatedFileName) {
+      const registrationText = administrativeFolio ? ` Solicitud registrada como ${administrativeFolio}.` : administrativeWarning;
+      setVacationMessage(`Archivo generado: ${generatedFileName}.${registrationText}`, administrativeWarning ? "warning" : "success");
+    }
   }
+}
+
+async function registerVacationRequest(request) {
+  const requestKey = [
+    request.employee.code,
+    ...request.ranges.flatMap((range) => [toDateKey(range.start), toDateKey(range.end)]),
+  ].join("|");
+  let clientRequestId = state.vacationSubmissionIds.get(requestKey);
+  if (!clientRequestId) {
+    clientRequestId = typeof crypto?.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    state.vacationSubmissionIds.set(requestKey, clientRequestId);
+  }
+  const adminOrigin = `${window.location.protocol}//${window.location.hostname}:8081`;
+  const response = await fetch(`${adminOrigin}/api/public/requests`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      clientRequestId,
+      employeeNumber: String(request.employee.code),
+      employeeName: request.employee.name,
+      days: request.days,
+      ranges: request.ranges.map((range) => ({
+        start: toDateKey(range.start),
+        end: toDateKey(range.end),
+        days: range.days,
+        returnDate: toDateKey(range.returnDate),
+      })),
+      balances: request.balances,
+      allocations: request.allocations.map(({ year, days }) => ({ year, days })),
+      notes: els.vacationNotes.value.trim(),
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "No se pudo registrar la solicitud.");
+  return result;
 }
 
 async function generateJustificationFile() {

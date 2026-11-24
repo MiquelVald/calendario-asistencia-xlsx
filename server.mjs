@@ -8,7 +8,10 @@ const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const publicRoot = path.join(appRoot, "dist");
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 8080);
-const templatePath = process.env.JUSTIFICACIONES_TEMPLATE_PATH || "";
+const localTemplatePath = process.platform === "win32"
+  ? String.raw`O:\2026 Formatos\Septiembre\2026 FormatodeVacacionesyPermisosOK.xlsx`
+  : "";
+const templatePath = process.env.JUSTIFICACIONES_TEMPLATE_PATH || localTemplatePath;
 const localReportsRoot = process.platform === "win32"
   ? String.raw`O:\2026 Formatos\2026 Reporte Lista de Asistencia`
   : "";

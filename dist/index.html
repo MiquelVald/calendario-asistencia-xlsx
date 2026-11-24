@@ -83,8 +83,26 @@
               Cargando el reporte de vacaciones…
             </div>
             <div class="field-group">
-              <label for="vacationEmployeeSelect">Número y nombre del empleado</label>
-              <select id="vacationEmployeeSelect" disabled>
+              <label for="vacationEmployeeSearch">Número y nombre del empleado</label>
+              <div id="vacationEmployeeCombobox" class="combobox vacation-employee-combobox">
+                <span class="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg></span>
+                <input
+                  id="vacationEmployeeSearch"
+                  type="text"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded="false"
+                  aria-controls="vacationEmployeeList"
+                  autocomplete="off"
+                  placeholder="Escribe el número o el nombre"
+                  disabled
+                />
+                <button id="vacationEmployeeToggle" class="combo-toggle" type="button" aria-label="Mostrar empleados" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5"/></svg>
+                </button>
+                <div id="vacationEmployeeList" class="person-list vacation-employee-list" role="listbox" hidden></div>
+              </div>
+              <select id="vacationEmployeeSelect" class="visually-hidden" tabindex="-1" aria-hidden="true" disabled>
                 <option value="">Selecciona una persona</option>
               </select>
               <p id="vacationEmployeeHint" class="field-hint">Espera mientras se carga el reporte.</p>
@@ -188,6 +206,7 @@
             <button id="vacationGenerateButton" class="primary-button vacation-generate-button" type="button" disabled>
               Selecciona una persona
             </button>
+            <p class="vacation-policy-note">Al generar el formato, la solicitud se enviará también a la bandeja de Administración para validar el saldo.</p>
             <div class="vacation-template-meta">
               <p id="vacationGenerateNote">Se requiere el formato institucional para generar el archivo.</p>
               <button id="vacationTemplateButton" class="text-button" type="button">Configurar formato</button>
