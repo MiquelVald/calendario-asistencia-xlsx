@@ -1064,7 +1064,8 @@ function nthWeekdayOfMonth(year, month, weekday, occurrence) {
 }
 
 function nonWorkingDay(date) {
-  const institutionalHoliday = date.getMonth() === 11 && date.getDate() === 24
+  const institutionalHolidays = new Set(["11-24", "11-31"]);
+  const institutionalHoliday = institutionalHolidays.has(`${date.getMonth()}-${date.getDate()}`)
     ? "Día inhábil institucional"
     : null;
   const holiday = institutionalHoliday || mexicoMandatoryHoliday(date);

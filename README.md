@@ -33,7 +33,7 @@ La aplicación busca una hoja que contenga los encabezados `Nombre`, `Fecha`, `E
 - Las personas con horario especial configurado tienen entrada a las 08:00 con 15 minutos de tolerancia: hasta las 08:15 se considera puntual y desde las 08:16 se marca una llegada tardía. Su salida mínima es 15:00 de lunes a jueves; el viernes conservan la salida mínima general de las 14:00. Estas reglas se evalúan directamente por hora, ignorando los colores calculados para el horario general.
 - Un día laborable sin entrada ni salida se marca en lavanda.
 - Los sábados, domingos y descansos obligatorios federales de México se muestran en gris y no cuentan como inasistencia ni alerta.
-- Para vacaciones, el 24 de diciembre también se considera día inhábil institucional y no descuenta saldo.
+- El 24 y el 31 de diciembre se consideran días inhábiles institucionales. Junto con el 1 de enero y los demás descansos obligatorios, no descuentan saldo de vacaciones ni se cuentan como incidencias.
 
 Los descansos obligatorios siguen el artículo 74 de la Ley Federal del Trabajo. Las jornadas electorales no se calculan automáticamente porque dependen de la elección federal o local aplicable.
 
